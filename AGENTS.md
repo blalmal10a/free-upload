@@ -4,10 +4,9 @@
 
 - **Configured**: skeleton fully renamed to vendor `blalmal10a`, package `free-upload`, namespace `Blalmal10a\FreeUpload` (`configure.php` was run and self-deleted — no placeholders remain).
 - `composer.json`: `php: ^8.2`, `ext-gd`, `filament/filament: ^4.0 || ^5.0`. CI matrix (`tests.yml` + `phpstan.yml`) runs a `filament: [4.*, 5.*]` dimension; the phpstan job loads `gd`.
-- **Implemented so far**: `config/free-upload.php` (all keys), `src/Http/Controllers/FreeUploadUploadController.php`. Everything else in the plan below is pending.
+- **Implemented so far**: Phase 0–4 done (config, controller, skeleton cleanup, provider wiring, `src/Proxy/`, `server/`, `FreeUpload` component + inline XHR/PXVT JS, full Pest suite, README). Verification green locally: `pint`, `phpstan`, `rector --dry-run`, `pest` (32 tests), `route:list --name=freeupload` shows `freeupload.upload`, server smoke (OPTIONS 204+CORS / 400 / 404 via real network).
 - `vendor/` is installed. `composer install` runs `testbench package:discover` via `post-autoload-dump`, so testbench is required even for `composer lint`.
-- Branch is `5.x`. `update-changelog.yml` still references `main` (fix at release time).
-- Skeleton cruft still on disk until the cleanup task below runs: `database/` (migration stub — **not needed, delete**), `stubs/`, `src/Commands/`, `src/Facades/`, `src/Testing/`, demo `src/FreeUpload.php`, `resources/` (lang/views/css/js/dist), `bin/`, `package.json`, `tests/DebugTest.php`.
+- Branch is `5.x`. `update-changelog.yml` fixed to `5.x` (badges in README also use `5.x`).
 
 ## Current plan (todo)
 
@@ -15,13 +14,13 @@
 - [x] Phase 0: run configure.php, composer.json (filament ^4||^5, ext-gd), CI matrix
 - [x] Phase 1: `config/free-upload.php` (done)
 - [x] Phase 1: `FreeUploadUploadController` class (done — route registration still pending in provider wiring)
-- [ ] Phase 1: Skeleton cleanup (full): delete `database/` (migration stub + factory), `stubs/`, `src/Commands|Facades|Testing`, demo `src/FreeUpload.php`, `resources/`, `bin/`, `package.json`, `.npmrc`, `.prettierrc`, `tests/DebugTest.php`; drop `Database\Factories` autoload + `FreeUpload` alias from composer.json; trim `database` from `phpstan.neon.dist` paths; `composer dump-autoload`
-- [ ] Phase 1: Provider wiring: drop `hasCommands`/`hasMigrations`/stub-publishing/`Testable::mixin`; register config-gated route → `POST {prefix}/upload` named `freeupload.upload`
-- [ ] Phase 1: `src/Proxy/` — PxvtDecoder, PxvtDecodeException, ProxyResponse, Proxy (injectable fetcher)
-- [ ] Phase 1: `server/` standalone deployable proxy (composer.json, public/index.php, .htaccess)
-- [ ] Phase 2: `FreeUpload` component + XHR/PXVT JS (StateCast dropped for MVP; asset registration hooks stay empty — upload JS is inline in `toEmbeddedHtml`)
-- [ ] Phase 3: Pest tests — Unit: PxvtDecoder, Proxy, Config · Feature: Controller (Http::fake), Component (Livewire::test); replace skeleton `ExampleTest`/`DebugTest`
-- [ ] Phase 4: README rewrite, update-changelog.yml branch fix, verification (lint/analyse/test, `route:list --name=freeupload`, server smoke)
+- [x] Phase 1: Skeleton cleanup (full): delete `database/` (migration stub + factory), `stubs/`, `src/Commands|Facades|Testing`, demo `src/FreeUpload.php`, `resources/`, `bin/`, `package.json`, `.npmrc`, `.prettierrc`, `tests/DebugTest.php`; drop `Database\Factories` autoload + `FreeUpload` alias from composer.json; trim `database` from `phpstan.neon.dist` paths; `composer dump-autoload`
+- [x] Phase 1: Provider wiring: drop `hasCommands`/`hasMigrations`/stub-publishing/`Testable::mixin`; register config-gated route → `POST {prefix}/upload` named `freeupload.upload`
+- [x] Phase 1: `src/Proxy/` — PxvtDecoder, PxvtDecodeException, ProxyResponse, Proxy (injectable fetcher)
+- [x] Phase 1: `server/` standalone deployable proxy (composer.json, public/index.php, .htaccess)
+- [x] Phase 2: `FreeUpload` component + XHR/PXVT JS (StateCast dropped for MVP; asset registration hooks stay empty — upload JS is inline in `toEmbeddedHtml`)
+- [x] Phase 3: Pest tests — Unit: PxvtDecoder, Proxy, Config · Feature: Controller (Http::fake), Component (Livewire::test); replace skeleton `ExampleTest`/`DebugTest`
+- [x] Phase 4: README rewrite, update-changelog.yml branch fix, verification (lint/analyse/test, `route:list --name=freeupload`, server smoke)
 
 ## Toolchain & commands
 
@@ -37,10 +36,11 @@ All via composer scripts (see `composer.json`):
 | `composer refactor` | `rector` (applies) |
 
 - **Tests**: Pest on Orchestra Testbench (`tests/TestCase.php` boots the full Filament provider stack + Livewire + `WithWorkbench`, so Livewire component tests work out of the box). `tests/Pest.php` binds `Blalmal10a\FreeUpload\Tests\TestCase`.
-- **`phpunit.xml.dist` is strict**: `failOnWarning`, `failOnRisky`, `failOnEmptyTestSuite` — an empty/misnamed test file fails the suite. Coverage/report artifacts go to `build/` (gitignored).
+- **Component test gotchas** (learned writing the suite): `getEnvironmentSetUp` must set an `app.key` (exactly 32 chars, else Encrypter throws) and register `tests/views`; Livewire form components need `implements HasSchemas` + explicit `render()`; state is a **list** of URL strings keyed numerically, so `callSchemaComponentMethod('form.file', 'removeUploadedFile', ['fileKey' => '0'])` uses the index; controller tests need `actingAs` (route has `auth`) and `withoutMiddleware(PreventRequestForgery::class)`; multipart upstream assertions must read `$request->toPsrRequest()->getBody()` (no `$request['key']` access for multipart).
+- **`phpunit.xml.dist` is strict**: `failOnWarning`, `failOnRisky`, `failOnEmptyTestSuite` — an empty/misnamed test file fails the suite. Junit log goes to `build/` (gitignored). The skeleton's `<coverage>` block was removed: with PHPUnit 12, coverage config + no xdebug/pcov driver + `failOnWarning` aborts the run before tests start; generate coverage on demand with `--coverage-*` flags instead.
 - **Pint** (`pint.json`): laravel preset + `blank_line_before_statement`, `concat_space: one`, `single_trait_insert_per_statement`, `types_spaces: single`. The `fix-code-style` CI workflow auto-commits Pint fixes on every PHP push — keep changes small to avoid churn.
-- **PHPStan** (`phpstan.neon.dist`): level 4 only, paths `src`, `config` (drop `database` after cleanup); includes `phpstan-baseline.neon` (currently empty). CI runs it across PHP 8.2–8.4 × Laravel 11–13 × Filament 4/5 with pinned testbench (9/10/11).
-- **Rector** (`rector.php`): `src/` only, prepared sets (deadCode, codeQuality, typeDeclarations, privatization, earlyReturn, strictBooleans).
+- **PHPStan** (`phpstan.neon.dist`): level 4 only, paths `src`, `config`; includes `phpstan-baseline.neon` (currently empty). CI runs it across PHP 8.2–8.4 × Laravel 11–13 × Filament 4/5 with pinned testbench (9/10/11). Skeleton's `checkOctaneCompatibility`/`checkModelProperties` params were dropped — invalid in larastan 3.10.
+- **Rector** (`rector.php`): `src/` only, prepared sets (deadCode, codeQuality, typeDeclarations, privatization, earlyReturn). `strictBooleans` was removed from rector 2.6's `withPreparedSets` — don't re-add it.
 - **CI matrix** (`tests.yml`): ubuntu + windows × PHP 8.2/8.3/8.4 × Laravel 11/12/13 × filament 4.*/5.* × `prefer-lowest`/`prefer-stable`; Laravel 13 is excluded on PHP 8.2. `zizmor.yml` lints workflow files. Local testing only exercises your current PHP/Laravel — always pass CI variants when changing constraints.
 - `testbench.yaml` is gitignored (generated); `.gitattributes` export-ignores tests/config/tooling from Packagist dists.
 

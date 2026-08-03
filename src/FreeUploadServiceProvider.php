@@ -2,60 +2,28 @@
 
 namespace Blalmal10a\FreeUpload;
 
-use Filament\Support\Assets\AlpineComponent;
+use Blalmal10a\FreeUpload\Http\Controllers\FreeUploadUploadController;
 use Filament\Support\Assets\Asset;
-use Filament\Support\Assets\Css;
-use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Facades\FilamentIcon;
-use Illuminate\Filesystem\Filesystem;
-use Livewire\Features\SupportTesting\Testable;
+use Illuminate\Support\Facades\Route;
 use Spatie\LaravelPackageTools\Commands\InstallCommand;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
-use Blalmal10a\FreeUpload\Commands\FreeUploadCommand;
-use Blalmal10a\FreeUpload\Testing\TestsFreeUpload;
 
 class FreeUploadServiceProvider extends PackageServiceProvider
 {
     public static string $name = 'free-upload';
 
-    public static string $viewNamespace = 'free-upload';
-
     public function configurePackage(Package $package): void
     {
-        /*
-         * This class is a Package Service Provider
-         *
-         * More info: https://github.com/spatie/laravel-package-tools
-         */
         $package->name(static::$name)
-            ->hasCommands($this->getCommands())
-            ->hasInstallCommand(function (InstallCommand $command) {
+            ->hasConfigFile()
+            ->hasInstallCommand(function (InstallCommand $command): void {
                 $command
                     ->publishConfigFile()
-                    ->publishMigrations()
-                    ->askToRunMigrations()
                     ->askToStarRepoOnGitHub('blalmal10a/free-upload');
             });
-
-        $configFileName = $package->shortName();
-
-        if (file_exists($package->basePath("/../config/{$configFileName}.php"))) {
-            $package->hasConfigFile();
-        }
-
-        if (file_exists($package->basePath('/../database/migrations'))) {
-            $package->hasMigrations($this->getMigrations());
-        }
-
-        if (file_exists($package->basePath('/../resources/lang'))) {
-            $package->hasTranslations();
-        }
-
-        if (file_exists($package->basePath('/../resources/views'))) {
-            $package->hasViews(static::$viewNamespace);
-        }
     }
 
     public function packageRegistered(): void {}
@@ -76,17 +44,7 @@ class FreeUploadServiceProvider extends PackageServiceProvider
         // Icon Registration
         FilamentIcon::register($this->getIcons());
 
-        // Handle Stubs
-        if (app()->runningInConsole()) {
-            foreach (app(Filesystem::class)->files(__DIR__ . '/../stubs/') as $file) {
-                $this->publishes([
-                    $file->getRealPath() => base_path("stubs/free-upload/{$file->getFilename()}"),
-                ], 'free-upload-stubs');
-            }
-        }
-
-        // Testing
-        Testable::mixin(new TestsFreeUpload);
+        $this->registerRoutes();
     }
 
     protected function getAssetPackageName(): ?string
@@ -99,35 +57,13 @@ class FreeUploadServiceProvider extends PackageServiceProvider
      */
     protected function getAssets(): array
     {
-        return [
-            // AlpineComponent::make('free-upload', __DIR__ . '/../resources/dist/components/free-upload.js'),
-            // Css::make('free-upload-styles', __DIR__ . '/../resources/dist/free-upload.css'),
-            // Js::make('free-upload-scripts', __DIR__ . '/../resources/dist/free-upload.js'),
-        ];
-    }
-
-    /**
-     * @return array<class-string>
-     */
-    protected function getCommands(): array
-    {
-        return [
-            FreeUploadCommand::class,
-        ];
-    }
-
-    /**
-     * @return array<string>
-     */
-    protected function getIcons(): array
-    {
         return [];
     }
 
     /**
      * @return array<string>
      */
-    protected function getRoutes(): array
+    protected function getIcons(): array
     {
         return [];
     }
@@ -140,13 +76,16 @@ class FreeUploadServiceProvider extends PackageServiceProvider
         return [];
     }
 
-    /**
-     * @return array<string>
-     */
-    protected function getMigrations(): array
+    protected function registerRoutes(): void
     {
-        return [
-            'create_free-upload_table',
-        ];
+        if (! config('free-upload.register_routes', true)) {
+            return;
+        }
+
+        Route::prefix((string) config('free-upload.route_prefix', 'freeupload'))
+            ->middleware((array) config('free-upload.route_middleware', ['web', 'auth']))
+            ->group(function (): void {
+                Route::post('/upload', FreeUploadUploadController::class)->name('freeupload.upload');
+            });
     }
 }

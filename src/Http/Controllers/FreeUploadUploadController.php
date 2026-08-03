@@ -3,7 +3,6 @@
 namespace Blalmal10a\FreeUpload\Http\Controllers;
 
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\TimeoutException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -59,7 +58,7 @@ class FreeUploadUploadController
                 ->timeout(120)
                 ->attach('source', $file->get(), $file->getClientOriginalName())
                 ->post($host, $payload);
-        } catch (ConnectionException | TimeoutException) {
+        } catch (ConnectionException) {
             return null;
         }
 

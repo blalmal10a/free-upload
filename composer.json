@@ -42,8 +42,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Blalmal10a\\FreeUpload\\": "src/",
-            "Blalmal10a\\FreeUpload\\Database\\Factories\\": "database/factories/"
+            "Blalmal10a\\FreeUpload\\": "src/"
         }
     },
     "autoload-dev": {
@@ -64,10 +63,7 @@
         "laravel": {
             "providers": [
                 "Blalmal10a\\FreeUpload\\FreeUploadServiceProvider"
-            ],
-            "aliases": {
-                "FreeUpload": "Blalmal10a\\FreeUpload\\Facades\\FreeUpload"
-            }
+            ]
         }
     },
     "config": {
