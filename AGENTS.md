@@ -2,20 +2,26 @@
 
 ## Repo status (read this first)
 
-This repo is the **official Filament plugin free-upload, unconfigured**. Nothing has been customized yet:
+- **Configured**: skeleton fully renamed to vendor `blalmal10a`, package `free-upload`, namespace `Blalmal10a\FreeUpload` (`configure.php` was run and self-deleted — no placeholders remain).
+- `composer.json`: `php: ^8.2`, `ext-gd`, `filament/filament: ^4.0 || ^5.0`. CI matrix (`tests.yml` + `phpstan.yml`) runs a `filament: [4.*, 5.*]` dimension; the phpstan job loads `gd`.
+- **Implemented so far**: `config/free-upload.php` (all keys), `src/Http/Controllers/FreeUploadUploadController.php`. Everything else in the plan below is pending.
+- `vendor/` is installed. `composer install` runs `testbench package:discover` via `post-autoload-dump`, so testbench is required even for `composer lint`.
+- Branch is `5.x`. `update-changelog.yml` still references `main` (fix at release time).
+- Skeleton cruft still on disk until the cleanup task below runs: `database/` (migration stub — **not needed, delete**), `stubs/`, `src/Commands/`, `src/Facades/`, `src/Testing/`, demo `src/FreeUpload.php`, `resources/` (lang/views/css/js/dist), `bin/`, `package.json`, `tests/DebugTest.php`.
 
-- `composer.json` still has literal placeholders: `"blalmal10a/free-upload"`, namespace `Blalmal10a\FreeUpload`, provider `Blalmal10a\FreeUpload\FreeUploadServiceProvider`. Do not ship this state.
-- The roadmap below (FreeUpload) is the intended final package and is **not yet implemented** — no `FreeUpload` classes, no `server/`, no package tests exist in this repo.
-- `git branch` is `5.x` (Filament v5 free-upload). The `update-changelog.yml` workflow still references `main` (free-upload cruft, untouched).
-- `vendor/` is not installed. `composer install` runs `testbench package:discover` via `post-autoload-dump`, so testbench is required even for `composer lint`.
+## Current plan (todo)
 
-### First real step
-
-```bash
-php ./configure.php    # interactive placeholder replacer (vendor, package, namespace, class names, etc.)
-```
-
-Run it before any work that touches namespaces/composer.json. Target identity: vendor `blalmal10a`, package `free-upload`, namespace `Blalmal10a\FreeUpload`.
+- [x] Update AGENTS.md: v4+v5 support framing (replace v5-only roadmap)
+- [x] Phase 0: run configure.php, composer.json (filament ^4||^5, ext-gd), CI matrix
+- [x] Phase 1: `config/free-upload.php` (done)
+- [x] Phase 1: `FreeUploadUploadController` class (done — route registration still pending in provider wiring)
+- [ ] Phase 1: Skeleton cleanup (full): delete `database/` (migration stub + factory), `stubs/`, `src/Commands|Facades|Testing`, demo `src/FreeUpload.php`, `resources/`, `bin/`, `package.json`, `.npmrc`, `.prettierrc`, `tests/DebugTest.php`; drop `Database\Factories` autoload + `FreeUpload` alias from composer.json; trim `database` from `phpstan.neon.dist` paths; `composer dump-autoload`
+- [ ] Phase 1: Provider wiring: drop `hasCommands`/`hasMigrations`/stub-publishing/`Testable::mixin`; register config-gated route → `POST {prefix}/upload` named `freeupload.upload`
+- [ ] Phase 1: `src/Proxy/` — PxvtDecoder, PxvtDecodeException, ProxyResponse, Proxy (injectable fetcher)
+- [ ] Phase 1: `server/` standalone deployable proxy (composer.json, public/index.php, .htaccess)
+- [ ] Phase 2: `FreeUpload` component + XHR/PXVT JS (StateCast dropped for MVP; asset registration hooks stay empty — upload JS is inline in `toEmbeddedHtml`)
+- [ ] Phase 3: Pest tests — Unit: PxvtDecoder, Proxy, Config · Feature: Controller (Http::fake), Component (Livewire::test); replace skeleton `ExampleTest`/`DebugTest`
+- [ ] Phase 4: README rewrite, update-changelog.yml branch fix, verification (lint/analyse/test, `route:list --name=freeupload`, server smoke)
 
 ## Toolchain & commands
 
@@ -33,12 +39,12 @@ All via composer scripts (see `composer.json`):
 - **Tests**: Pest on Orchestra Testbench (`tests/TestCase.php` boots the full Filament provider stack + Livewire + `WithWorkbench`, so Livewire component tests work out of the box). `tests/Pest.php` binds `Blalmal10a\FreeUpload\Tests\TestCase`.
 - **`phpunit.xml.dist` is strict**: `failOnWarning`, `failOnRisky`, `failOnEmptyTestSuite` — an empty/misnamed test file fails the suite. Coverage/report artifacts go to `build/` (gitignored).
 - **Pint** (`pint.json`): laravel preset + `blank_line_before_statement`, `concat_space: one`, `single_trait_insert_per_statement`, `types_spaces: single`. The `fix-code-style` CI workflow auto-commits Pint fixes on every PHP push — keep changes small to avoid churn.
-- **PHPStan** (`phpstan.neon.dist`): level 4 only, paths `src`, `config`, `database`; includes `phpstan-baseline.neon` (currently empty). CI runs it across PHP 8.2–8.4 × Laravel 11–13 with pinned testbench (9/10/11).
+- **PHPStan** (`phpstan.neon.dist`): level 4 only, paths `src`, `config` (drop `database` after cleanup); includes `phpstan-baseline.neon` (currently empty). CI runs it across PHP 8.2–8.4 × Laravel 11–13 × Filament 4/5 with pinned testbench (9/10/11).
 - **Rector** (`rector.php`): `src/` only, prepared sets (deadCode, codeQuality, typeDeclarations, privatization, earlyReturn, strictBooleans).
-- **CI matrix** (`tests.yml`): ubuntu + windows × PHP 8.2/8.3/8.4 × Laravel 11/12/13 × `prefer-lowest`/`prefer-stable`; Laravel 13 is excluded on PHP 8.2. `zizmor.yml` lints workflow files. Local testing only exercises your current PHP/Laravel — always pass CI variants when changing constraints.
+- **CI matrix** (`tests.yml`): ubuntu + windows × PHP 8.2/8.3/8.4 × Laravel 11/12/13 × filament 4.*/5.* × `prefer-lowest`/`prefer-stable`; Laravel 13 is excluded on PHP 8.2. `zizmor.yml` lints workflow files. Local testing only exercises your current PHP/Laravel — always pass CI variants when changing constraints.
 - `testbench.yaml` is gitignored (generated); `.gitattributes` export-ignores tests/config/tooling from Packagist dists.
 
-## Roadmap — FreeUpload plugin (planned)
+## Roadmap — FreeUpload plugin
 
 Standalone Filament plugin `blalmal10a/free-upload` (namespace `Blalmal10a\FreeUpload`) supporting **Filament v4 and v5 — one package major** (`filament/filament: ^4.0 || ^5.0`). Ports the host app's `KawnekFileUpload` component + state hook + upload controller into this package, ships a **framework-free PHP proxy server** (port of the `media-server.kawnek.workers.dev` worker: image proxying + PXVT decode), full docs (README), and a Pest suite. **Nothing in the host app is deleted** — the old classes stay in place.
 
@@ -57,17 +63,17 @@ Standalone Filament plugin `blalmal10a/free-upload` (namespace `Blalmal10a\FreeU
 - Non-image files: encoded client-side PXVT → PNG via canvas `toBlob` (30 MB cap); images (`image/*`) upload raw, never encoded.
 - Decoding is server-side only, via GD (`imagecreatefromstring`/`imagecolorat`). Proxy buffers responses (no streaming).
 - Proxy server is framework-free (cURL + GD), deployable on PHP 8.2+; tests run from the host template via `php artisan test packages/freeupload/tests`.
+- Component stores URL state natively: `fetchFileInformation(false)` + a `getUploadedFileUsing` override so URL strings hydrate and render as remote files. **No StateCast in the MVP** (the roadmap's `FreeUploadStateCast` was dropped; re-add only if v3 support is ever ported).
 
 ### Package structure (target)
 
 ```
 config/free-upload.php                 # all endpoints + knobs, env-driven
 src/Forms/Components/FreeUpload.php    # extends FileUpload; XHR uploadUsing; toEmbeddedHtml
-src/Schemas/Components/StateCasts/FreeUploadStateCast.php
 src/Http/Controllers/FreeUploadUploadController.php
 src/Proxy/{PxvtDecoder,Proxy,ProxyResponse,PxvtDecodeException}.php
 server/                                # standalone deployable proxy (composer.json, public/index.php, .htaccess)
-tests/                                 # Unit: PxvtDecoder, Proxy, StateCast, Config · Feature: Controller, Component
+tests/                                 # Unit: PxvtDecoder, Proxy, Config · Feature: Controller, Component
 ```
 
 ### Config keys (`config/free-upload.php`)
@@ -91,7 +97,7 @@ tests/                                 # Unit: PxvtDecoder, Proxy, StateCast, Co
 
 ### Proxy routing (`src/Proxy/Proxy.php`)
 
-`Proxy(string $imageHost, int $timeoutSeconds, ?callable $fetcher)` — fetcher injectable for tests. `OPTIONS` → 204 + CORS; `/{id}` → fetch upstream, ≥400 → 404, else stream with `Cache-Control: public, max-age=86400`; `/dec/{id}/{filename}` → fetch PNG, upstream fail → 502, bad magic/truncated → 400, other decode errors → 500, success → 200 with original `Content-Type` + `Content-Disposition: inline`, `Cache-Control: no-store`; anything else → 400. CORS headers (`Access-Control-Allow-Origin: *`, etc.) merged on all responses.
+`Proxy(string $imageHost, int $timeoutSeconds, ?callable $fetcher)` — fetcher injectable for tests. `OPTIONS` → 204 + CORS; `/{id}/{filename?}` → fetch upstream `{imageHost}/{id}`, ≥400 → 404, else stream with `Cache-Control: public, max-age=86400`; `/dec/{id}/{filename}` → fetch PNG, upstream fail → 502, bad magic/truncated → 400, other decode errors → 500, success → 200 with original `Content-Type` + `Content-Disposition: inline`, `Cache-Control: no-store`; anything else → 400. CORS headers (`Access-Control-Allow-Origin: *`, etc.) merged on all responses.
 
 ### Wiring into the host template (when porting)
 
