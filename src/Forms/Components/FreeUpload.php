@@ -43,6 +43,7 @@ class FreeUpload extends FileUpload
         $endpoint = $this->evaluate($endpoint ?? $this->uploadEndpoint);
 
         if (filled($endpoint)) {
+            /** @var string $endpoint */
             return $endpoint;
         }
 
