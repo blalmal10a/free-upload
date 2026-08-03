@@ -1,12 +1,12 @@
 <?php
 
-namespace VendorName\Skeleton\Commands;
+namespace Blalmal10a\FreeUpload\Commands;
 
 use Illuminate\Console\Command;
 
-class SkeletonCommand extends Command
+class FreeUploadCommand extends Command
 {
-    public $signature = 'skeleton';
+    public $signature = 'free-upload';
 
     public $description = 'My command';
 

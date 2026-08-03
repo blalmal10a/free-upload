@@ -2,11 +2,11 @@
 
 ## Repo status (read this first)
 
-This repo is the **official Filament plugin skeleton, unconfigured**. Nothing has been customized yet:
+This repo is the **official Filament plugin free-upload, unconfigured**. Nothing has been customized yet:
 
-- `composer.json` still has literal placeholders: `":vendor_slug/:package_slug"`, namespace `VendorName\Skeleton`, provider `VendorName\Skeleton\SkeletonServiceProvider`. Do not ship this state.
+- `composer.json` still has literal placeholders: `"blalmal10a/free-upload"`, namespace `Blalmal10a\FreeUpload`, provider `Blalmal10a\FreeUpload\FreeUploadServiceProvider`. Do not ship this state.
 - The roadmap below (FreeUpload) is the intended final package and is **not yet implemented** — no `FreeUpload` classes, no `server/`, no package tests exist in this repo.
-- `git branch` is `5.x` (Filament v5 skeleton). The `update-changelog.yml` workflow still references `main` (skeleton cruft, untouched).
+- `git branch` is `5.x` (Filament v5 free-upload). The `update-changelog.yml` workflow still references `main` (free-upload cruft, untouched).
 - `vendor/` is not installed. `composer install` runs `testbench package:discover` via `post-autoload-dump`, so testbench is required even for `composer lint`.
 
 ### First real step
@@ -30,7 +30,7 @@ All via composer scripts (see `composer.json`):
 | `composer lint` | `pint` (auto-fixes) |
 | `composer refactor` | `rector` (applies) |
 
-- **Tests**: Pest on Orchestra Testbench (`tests/TestCase.php` boots the full Filament provider stack + Livewire + `WithWorkbench`, so Livewire component tests work out of the box). `tests/Pest.php` binds `VendorName\Skeleton\Tests\TestCase`.
+- **Tests**: Pest on Orchestra Testbench (`tests/TestCase.php` boots the full Filament provider stack + Livewire + `WithWorkbench`, so Livewire component tests work out of the box). `tests/Pest.php` binds `Blalmal10a\FreeUpload\Tests\TestCase`.
 - **`phpunit.xml.dist` is strict**: `failOnWarning`, `failOnRisky`, `failOnEmptyTestSuite` — an empty/misnamed test file fails the suite. Coverage/report artifacts go to `build/` (gitignored).
 - **Pint** (`pint.json`): laravel preset + `blank_line_before_statement`, `concat_space: one`, `single_trait_insert_per_statement`, `types_spaces: single`. The `fix-code-style` CI workflow auto-commits Pint fixes on every PHP push — keep changes small to avoid churn.
 - **PHPStan** (`phpstan.neon.dist`): level 4 only, paths `src`, `config`, `database`; includes `phpstan-baseline.neon` (currently empty). CI runs it across PHP 8.2–8.4 × Laravel 11–13 with pinned testbench (9/10/11).
@@ -40,7 +40,14 @@ All via composer scripts (see `composer.json`):
 
 ## Roadmap — FreeUpload plugin (planned)
 
-Standalone Filament v5 plugin: `blalmal10a/free-upload` (namespace `Blalmal10a\FreeUpload`). Ports the host app's `KawnekFileUpload` component + state cast + upload controller into this package, ships a **framework-free PHP proxy server** (port of the `media-server.kawnek.workers.dev` worker: image proxying + PXVT decode), full docs (README), and a Pest suite. **Nothing in the host app is deleted** — the old classes stay in place.
+Standalone Filament plugin `blalmal10a/free-upload` (namespace `Blalmal10a\FreeUpload`) supporting **Filament v4 and v5 — one package major** (`filament/filament: ^4.0 || ^5.0`). Ports the host app's `KawnekFileUpload` component + state hook + upload controller into this package, ships a **framework-free PHP proxy server** (port of the `media-server.kawnek.workers.dev` worker: image proxying + PXVT decode), full docs (README), and a Pest suite. **Nothing in the host app is deleted** — the old classes stay in place.
+
+### Version support decisions (verified against Filament 4.x/5.x source, Aug 2026)
+
+- **v4 and v5 share an identical component API** — v5 shipped solely to adopt Livewire 4 (PHP ^8.2, Laravel ^11.28|^12|^13 in both). One codebase / one package major covers both. There is **no v3 support** (v3 = PHP ^8.1, Livewire 3, no `filament/schemas`, Blade-view render).
+- If v3 support is ever added later: split into separate majors (`1.x`→v3, `2.x`→v4|v5) — the v3 `FileUpload` renders a Blade view (`$view = 'filament-forms::components.file-upload'`, overridable via `->view()`) and has **no** `Filament\Schemas\Components\StateCasts`, so it needs a Blade re-render + a `dehydrateStateUsing` fallback instead of the cast.
+- `FilamentAsset`/`FilamentIcon` registration and the `Plugin` interface (`getId`/`register`/`boot`) are identical in v3/v4/v5 — those parts port cleanly.
+- **Known risk**: `FileUpload::toEmbeddedHtml()` and the JS `uploadUsing:` block are at the same source line in 4.x and 5.x today, but they are Filament internals; pin the source commit you copy and re-diff on upgrades.
 
 ### Locked decisions
 

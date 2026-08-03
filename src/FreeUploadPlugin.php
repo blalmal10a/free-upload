@@ -1,15 +1,15 @@
 <?php
 
-namespace VendorName\Skeleton;
+namespace Blalmal10a\FreeUpload;
 
 use Filament\Contracts\Plugin;
 use Filament\Panel;
 
-class SkeletonPlugin implements Plugin
+class FreeUploadPlugin implements Plugin
 {
     public function getId(): string
     {
-        return 'skeleton';
+        return 'free-upload';
     }
 
     public function register(Panel $panel): void

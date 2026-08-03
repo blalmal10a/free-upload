@@ -1,32 +1,31 @@
 {
-    "name": ":vendor_slug/:package_slug",
-    "description": ":package_description",
+    "name": "blalmal10a/free-upload",
+    "description": "Filament v4/v5 file upload plugin with custom XHR uploads, PXVT encoding, and proxy decoding",
     "keywords": [
-        ":vendor_name",
+        "blalmal10a",
         "laravel",
         "filamentphp",
         "filament",
         "filament-plugin",
-        ":package_slug"
+        "free-upload"
     ],
-    "homepage": "https://github.com/:vendor_slug/:package_slug",
+    "homepage": "https://github.com/blalmal10a/free-upload",
     "support": {
-        "issues": "https://github.com/:vendor_slug/:package_slug/issues",
-        "source": "https://github.com/:vendor_slug/:package_slug"
+        "issues": "https://github.com/blalmal10a/free-upload/issues",
+        "source": "https://github.com/blalmal10a/free-upload"
     },
     "license": "MIT",
     "authors": [
         {
-            "name": ":author_name",
-            "email": "author@domain.com",
+            "name": "blalmal10a",
+            "email": "malsawma7777@gmail.com",
             "role": "Developer"
         }
     ],
     "require": {
         "php": "^8.2",
-        "filament/filament": "^5.0",
-        "filament/forms": "^5.0",
-        "filament/tables": "^5.0",
+        "ext-gd": "*",
+        "filament/filament": "^4.0 || ^5.0",
         "spatie/laravel-package-tools": "^1.15.0"
     },
     "require-dev": {
@@ -43,13 +42,13 @@
     },
     "autoload": {
         "psr-4": {
-            "VendorName\\Skeleton\\": "src/",
-            "VendorName\\Skeleton\\Database\\Factories\\": "database/factories/"
+            "Blalmal10a\\FreeUpload\\": "src/",
+            "Blalmal10a\\FreeUpload\\Database\\Factories\\": "database/factories/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "VendorName\\Skeleton\\Tests\\": "tests/"
+            "Blalmal10a\\FreeUpload\\Tests\\": "tests/"
         }
     },
     "scripts": {
@@ -64,10 +63,10 @@
     "extra": {
         "laravel": {
             "providers": [
-                "VendorName\\Skeleton\\SkeletonServiceProvider"
+                "Blalmal10a\\FreeUpload\\FreeUploadServiceProvider"
             ],
             "aliases": {
-                "Skeleton": "VendorName\\Skeleton\\Facades\\Skeleton"
+                "FreeUpload": "Blalmal10a\\FreeUpload\\Facades\\FreeUpload"
             }
         }
     },
