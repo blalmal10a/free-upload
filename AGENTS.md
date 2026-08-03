@@ -4,7 +4,7 @@
 
 - **Configured**: skeleton fully renamed to vendor `blalmal10a`, package `free-upload`, namespace `Blalmal10a\FreeUpload` (`configure.php` was run and self-deleted — no placeholders remain).
 - `composer.json`: `php: ^8.2`, `ext-gd`, `filament/filament: ^4.0 || ^5.0`. CI matrix (`tests.yml` + `phpstan.yml`) runs a `filament: [4.*, 5.*]` dimension; the phpstan job loads `gd`.
-- **Implemented so far**: Phase 0–4 done (config, controller, skeleton cleanup, provider wiring, `src/Proxy/`, `server/`, `FreeUpload` component + inline XHR/PXVT JS, full Pest suite, README). Verification green locally: `pint`, `phpstan`, `rector --dry-run`, `pest` (32 tests), `route:list --name=freeupload` shows `freeupload.upload`, server smoke (OPTIONS 204+CORS / 400 / 404 via real network).
+- **Implemented so far**: Phase 0–4 done (config, controller, skeleton cleanup, provider wiring, `src/Proxy/`, `server/`, `FreeUpload` component + inline XHR/PXVT JS, full Pest suite, README). Verification green locally: `pint`, `phpstan`, `rector --dry-run`, `pest` (35 tests), `route:list --name=freeupload` shows `freeupload.upload`, server smoke (OPTIONS 204+CORS / 400 / 404 via real network).
 - **Imported into host template** (`blalmal10a/kawnek-template`, Aug 2026): path repo + `@dev` require + test autoload wired, `UserForm.php` uses `FreeUpload`, `FREEUPLOAD_API_KEY` in `.env(.example)`, route registered — see "Wiring into the host template".
 - `vendor/` is installed. `composer install` runs `testbench package:discover` via `post-autoload-dump`, so testbench is required even for `composer lint`.
 - Branch is `5.x`. `update-changelog.yml` fixed to `5.x` (badges in README also use `5.x`).
@@ -58,7 +58,7 @@ Standalone Filament plugin `blalmal10a/free-upload` (namespace `Blalmal10a\FreeU
 
 ### Locked decisions
 
-- Upload endpoint: plugin's own Laravel controller + route by default; overridable via config or per-component `->uploadEndpoint()`.
+- Upload endpoint: plugin's own Laravel controller + route by default; configurable **only** via env/config (`upload_endpoint` / `FREEUPLOAD_UPLOAD_ENDPOINT`) — deliberately **not** per-component (removed `->uploadEndpoint()` in Aug 2026; the endpoint must be a single env-driven value across all form fields).
 - Decode endpoint: configurable base URL (`decode_base_url`, default `https://media-server.kawnek.workers.dev`); stored values are URL strings built as `{base}{/dec if encoded}/{id}/{filename}`.
 - Client HTTP: `XMLHttpRequest` with `xhr.upload.onprogress` — **no axios**.
 - Non-image files: encoded client-side PXVT → PNG via canvas `toBlob` (30 MB cap); images (`image/*`) upload raw, never encoded.
@@ -69,13 +69,20 @@ Standalone Filament plugin `blalmal10a/free-upload` (namespace `Blalmal10a\FreeU
 ### Package structure (target)
 
 ```
-config/free-upload.php                 # all endpoints + knobs, env-driven
+config/free-upload.php                 # Public endpoints + config marks, env-driven
 src/Forms/Components/FreeUpload.php    # extends FileUpload; XHR uploadUsing; toEmbeddedHtml
 src/Http/Controllers/FreeUploadUploadController.php
 src/Proxy/{PxvtDecoder,Proxy,ProxyResponse,PxvtDecodeException}.php
 server/                                # standalone deployable proxy (composer.json, public/index.php, .htaccess)
 tests/                                 # Unit: PxvtDecoder, Proxy, Config · Feature: Controller, Component
 ```
+
+### Publishing the component (August 2026)
+
+- `FreeUploadServiceProvider` registers a `publishes()` map for the component class: tag `free-upload-component` (also grouped under `free-upload`) copies `src/Forms/Components/FreeUpload.php` → `app/Forms/Components/FreeUpload.php`.
+- The copy keeps the package namespace, so it is **not autoloaded** as-is; the host dev changes the namespace to their app namespace and references `App\Forms\Components\FreeUpload` in their forms (documented in README). The published copy is a one-time snapshot — package upgrades don't touch it.
+- Publishing the raw source (not a namespaced stub) keeps a single source of truth — no duplicated template to keep in sync. The published file is dead code until the namespace is changed, so there is no class-conflict risk.
+- Upload endpoint, size caps, etc. are still config/env driven, so a published component changes only how it renders/uploads.
 
 ### Config keys (`config/free-upload.php`)
 
@@ -112,14 +119,25 @@ The package was imported into the host template `blalmal10a/kawnek-template` (Gi
 4. Route auto-registered: `POST freeupload/upload` named `freeupload.upload` (template's `extra.laravel.dont-discover` is empty, so the provider auto-discovers; route middleware `['web','auth']`).
 5. Template verification after the swap: `php artisan test --compact` (52 passed), `vendor/bin/pint --dirty`, `vendor/bin/phpstan`, `vendor/bin/rector --dry-run` — all green.
 
+### Known issue fixed: Alpine v3 arrow-function scoping (Aug 2026)
+
+Browser smoke test after the import hit `ReferenceError: uploadEndpoint is not defined` inside the component's `uploadUsing` JS. Root cause and fix:
+
+- `toEmbeddedHtml()` originally declared `uploadEndpoint` and `maxEncodedFileMb` as **Alpine data properties** on the `fileUploadFormComponent({...})` object, then referenced them as bare variables inside the nested `send` arrow function. Alpine v3's `with(this)` scope wrapping only applies to regular method bodies, not arrow functions (which capture `this` lexically) — so bare property names resolve to nothing at runtime.
+- **Fix**: both values are now **inlined at point of use** via `Js::from($this->getUploadEndpoint(), JSON_UNESCAPED_SLASHES)` and `Js::from($this->getMaxEncodedFileMb() * 1024 * 1024, JSON_UNESCAPED_SLASHES)`; the data properties were removed from the Alpine object.
+- `JSON_UNESCAPED_SLASHES` keeps URLs readable in the emitted HTML (Laravel's `Js::from` otherwise escapes `/` as `\/`; runtime is unaffected either way).
+- **Constraint going forward**: never reference Alpine data properties as bare variables inside arrow functions in `toEmbeddedHtml()` JS — inline PHP values with `Js::from()` instead (matches how Filament's own component code works).
+- Regression coverage: `tests/Feature/FreeUploadComponentTest.php` now asserts the endpoint (`xhr.open('POST', 'https://example.com/upload')`) and size cap (`if (file.size > 7340032)`) are inlined and that no `uploadEndpoint:`/`maxEncodedFileMb` data properties remain.
+
 ### Running the package tests
 
-- **Run from the package directory**: `composer test` (Testbench boots the full Filament stack; 32 tests / 65 assertions green).
+- **Run from the package directory**: `composer test` (Testbench boots the full Filament stack; 35 tests / 73 assertions green).
 - `php artisan test ../../packages/free-upload/tests` from the host **does not work**: the package's `tests/Pest.php` + `TestCase` (Orchestra Testbench, `WithWorkbench`) conflicts with the host's `tests/Pest.php` bootstrap — tests fail with `BindingResolutionException: Target class [url]/[config] does not exist`. Earlier docs ("run from the host template") are wrong; always use the package's own `composer test`.
 
 ### Verification checklist
 
-- `composer test` (from the package dir) → green (32 tests / 65 assertions)
+- `composer test` (from the package dir) → green (35 tests / 73 assertions)
+- `php artisan vendor:publish --tag=free-upload-component` in the host → drops `app/Forms/Components/FreeUpload.php`
 - `php artisan route:list --name=freeupload` in the host template → `freeupload.upload` registered
 - `vendor/bin/pint` clean (repo + `server/`)
 - Server smoke: `composer install` in `server/`, `php -S 0.0.0.0:8080 -t public`, curl `/{id}` and `/dec/{id}/{name}`

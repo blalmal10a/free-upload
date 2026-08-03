@@ -60,11 +60,12 @@ FreeUpload::make('file')
 
 The component extends Filament's `FileUpload`, so all regular options work (`->image()`, `->maxSize()`, `->reorderable()`, ...). The uploaded value is a URL string (or an array of URL strings when `->multiple()`).
 
-Additional options:
+The upload endpoint is configured **globally** via env/config (`FREEUPLOAD_UPLOAD_ENDPOINT` / `upload_endpoint`) — it is deliberately not overridable per component, so every form field uploads to the same endpoint.
+
+Additional per-component options:
 
 ```php
 FreeUpload::make('file')
-    ->uploadEndpoint('/api/upload')        // override the upload endpoint per component
     ->maxEncodedFileMb(10)                  // override the encoded-upload size cap per component
 ```
 
@@ -77,6 +78,29 @@ FreeUpload::make('file')
 
 > [!NOTE]
 > Stored URL strings are client-controllable values. Treat them as untrusted when the field is editable by non-admin users.
+
+## Publishing & customizing the component
+
+You can publish the `FreeUpload` component source into your application and take full ownership of it:
+
+```bash
+php artisan vendor:publish --tag="free-upload-component"
+```
+
+This publishes a copy of `FreeUpload.php` to `app/Forms/Components/FreeUpload.php`. To use your copy instead of the package's:
+
+1. Change the namespace in the published file from `Blalmal10a\FreeUpload\Forms\Components` to your application's namespace (e.g. `App\Forms\Components`).
+2. Reference the published class in your schemas:
+
+```php
+use App\Forms\Components\FreeUpload;
+
+FreeUpload::make('file')
+    ->multiple()
+    ->acceptedFileTypes(['image/*', 'application/pdf']);
+```
+
+The published copy is a snapshot — upgrades to the package won't touch it. The component keeps using the package's config keys and `freeupload.upload` route unless you override them, so a published copy only changes how the component renders and uploads.
 
 ## The proxy server
 

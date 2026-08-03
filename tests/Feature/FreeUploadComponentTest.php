@@ -92,12 +92,10 @@ it('defaults the upload endpoint to the plugin route', function (): void {
     expect($component->getUploadEndpoint())->toBe(route('freeupload.upload'));
 });
 
-it('prefers an explicit upload endpoint over the config and route', function (): void {
+it('uses the configured upload endpoint over the plugin route', function (): void {
     config()->set('free-upload.upload_endpoint', 'https://config.example.com/upload');
 
-    $component = FreeUpload::make('file')->uploadEndpoint('https://component.example.com/upload');
-
-    expect($component->getUploadEndpoint())->toBe('https://component.example.com/upload');
+    expect(FreeUpload::make('file')->getUploadEndpoint())->toBe('https://config.example.com/upload');
 
     config()->set('free-upload.upload_endpoint', null);
 
@@ -109,4 +107,22 @@ it('defaults the encoded file size cap to the configured value', function (): vo
 
     expect(FreeUpload::make('file')->getMaxEncodedFileMb())->toBe(12)
         ->and(FreeUpload::make('file')->maxEncodedFileMb(5)->getMaxEncodedFileMb())->toBe(5);
+});
+
+it('inlines the upload endpoint instead of referencing an alpine data property', function (): void {
+    config()->set('free-upload.upload_endpoint', 'https://example.com/upload');
+
+    $testable = Livewire::test(FreeUploadTestForm::class);
+
+    $testable->assertSee('xhr.open(\'POST\', \'https://example.com/upload\')', escape: false)
+        ->assertDontSee('POST\', uploadEndpoint)', escape: false)
+        ->assertDontSee('uploadEndpoint:', escape: false);
+});
+
+it('inlines the encoded file size cap instead of referencing an alpine data property', function (): void {
+    config()->set('free-upload.max_encoded_file_mb', 7);
+
+    Livewire::test(FreeUploadTestForm::class)
+        ->assertSee('if (file.size > 7340032)', escape: false)
+        ->assertDontSee('maxEncodedFileMb', escape: false);
 });

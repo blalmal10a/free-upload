@@ -13,8 +13,6 @@ use Illuminate\Support\Js;
 
 class FreeUpload extends FileUpload
 {
-    protected string | Closure | null $uploadEndpoint = null;
-
     protected int | Closure | null $maxEncodedFileMb = null;
 
     protected function setUp(): void
@@ -31,22 +29,8 @@ class FreeUpload extends FileUpload
         ]);
     }
 
-    public function uploadEndpoint(string | Closure | null $endpoint): static
+    public function getUploadEndpoint(): string
     {
-        $this->uploadEndpoint = $endpoint;
-
-        return $this;
-    }
-
-    public function getUploadEndpoint(string | Closure | null $endpoint = null): string
-    {
-        $endpoint = $this->evaluate($endpoint ?? $this->uploadEndpoint);
-
-        if (filled($endpoint)) {
-            /** @var string $endpoint */
-            return $endpoint;
-        }
-
         $endpoint = config('free-upload.upload_endpoint');
 
         if (filled($endpoint)) {
@@ -176,7 +160,6 @@ class FreeUpload extends FileUpload
                         maxFilesValidationMessage: <?= Js::from($maxFiles ? trans_choice('validation.max.array', $maxFiles, ['attribute' => $this->getValidationAttribute(), 'max' => $maxFiles]) : null) ?>,
                         maxParallelUploads: <?= Js::from($this->getMaxParallelUploads()) ?>,
                         maxSize: <?= Js::from($maxSize ? "{$maxSize}KB" : null) ?>,
-                        maxEncodedFileMb: <?= Js::from($this->getMaxEncodedFileMb() * 1024 * 1024) ?>,
                         mimeTypeMap: <?= Js::from($this->getMimeTypeMap()) ?>,
                         minSize: <?= Js::from($minSize ? "{$minSize}KB" : null) ?>,
                         panelAspectRatio: <?= Js::from($this->getPanelAspectRatio()) ?>,
@@ -207,7 +190,6 @@ class FreeUpload extends FileUpload
                         downloadActionLabel: <?= Js::from(__('filament-forms::components.file_upload.actions.download.label')) ?>,
                         openActionLabel: <?= Js::from(__('filament-forms::components.file_upload.actions.open.label')) ?>,
                         uploadProgressIndicatorPosition: <?= Js::from($this->getUploadProgressIndicatorPosition()) ?>,
-                        uploadEndpoint: <?= Js::from($this->getUploadEndpoint()) ?>,
                         uploadUsing: (fileKey, file, success, error, progress) => {
                             const isImage = (file.type ?? '').startsWith('image/')
 
@@ -224,7 +206,7 @@ class FreeUpload extends FileUpload
 
                                 const xhr = new XMLHttpRequest()
 
-                                xhr.open('POST', uploadEndpoint)
+                                xhr.open('POST', <?= Js::from($this->getUploadEndpoint(), JSON_UNESCAPED_SLASHES) ?>)
 
                                 const xsrfToken = (document.cookie.split('; ').find((cookie) => cookie.startsWith('XSRF-TOKEN=')) ?? '').split('=').slice(1).join('=')
 
@@ -275,7 +257,7 @@ class FreeUpload extends FileUpload
                                 return
                             }
 
-                            if (file.size > maxEncodedFileMb) {
+                            if (file.size > <?= Js::from($this->getMaxEncodedFileMb() * 1024 * 1024, JSON_UNESCAPED_SLASHES) ?>) {
                                 error('File is too large to upload without an image encode.')
 
                                 return

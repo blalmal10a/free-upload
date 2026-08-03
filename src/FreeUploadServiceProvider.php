@@ -45,6 +45,14 @@ class FreeUploadServiceProvider extends PackageServiceProvider
         FilamentIcon::register($this->getIcons());
 
         $this->registerRoutes();
+        $this->registerComponentPublish();
+    }
+
+    protected function registerComponentPublish(): void
+    {
+        $this->publishes([
+            __DIR__ . '/../src/Forms/Components/FreeUpload.php' => app_path('Forms/Components/FreeUpload.php'),
+        ], ['free-upload-component', 'free-upload']);
     }
 
     protected function getAssetPackageName(): ?string
