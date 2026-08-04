@@ -35,6 +35,9 @@ All via composer scripts (see `composer.json`):
 | `composer analyse` | `phpstan analyse` |
 | `composer lint` | `pint` (auto-fixes) |
 | `composer refactor` | `rector` (applies) |
+| `composer verify` | runs all CI checks: pint --test → phpstan → rector --dry-run → pest (aborts on first failure) |
+
+- **Pre-push hook (Husky)**: `.husky/pre-push` runs `composer verify` before every push. Requires `npm install` once (husky wires `core.hooksPath`); `package.json`/`package-lock.json`/`.husky/` are export-ignored from Packagist dists.
 
 - **Tests**: Pest on Orchestra Testbench (`tests/TestCase.php` boots the full Filament provider stack + Livewire + `WithWorkbench`, so Livewire component tests work out of the box). `tests/Pest.php` binds `Blalmal10a\FreeUpload\Tests\TestCase`.
 - **Component test gotchas** (learned writing the suite): `getEnvironmentSetUp` must set an `app.key` (exactly 32 chars, else Encrypter throws) and register `tests/views`; Livewire form components need `implements HasSchemas` + explicit `render()`; state is a **list** of URL strings keyed numerically, so `callSchemaComponentMethod('form.file', 'removeUploadedFile', ['fileKey' => '0'])` uses the index; controller tests need `actingAs` (route has `auth`) and `withoutMiddleware(PreventRequestForgery::class)`; multipart upstream assertions must read `$request->toPsrRequest()->getBody()` (no `$request['key']` access for multipart).
