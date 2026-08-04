@@ -25,7 +25,7 @@ it('proxies image requests with a long cache lifetime', function (): void {
         return ['status' => 200, 'body' => 'png-bytes'];
     });
 
-    $response = $proxy->handle('GET', '/abc123.png');
+    $response = $proxy->handle('GET', '/images/abc123.png');
 
     expect($response->status)->toBe(200)
         ->and($response->body)->toBe('png-bytes')
@@ -37,13 +37,13 @@ it('proxies image requests with a long cache lifetime', function (): void {
 it('returns 404 when the upstream image is missing', function (): void {
     $proxy = new Proxy('https://iili.io', fetcher: fn (): array => ['status' => 404, 'body' => '']);
 
-    expect($proxy->handle('GET', '/missing.png')->status)->toBe(404);
+    expect($proxy->handle('GET', '/images/missing.png')->status)->toBe(404);
 });
 
 it('falls back to octet-stream for unknown extensions', function (): void {
     $proxy = new Proxy('https://iili.io', fetcher: fn (): array => ['status' => 200, 'body' => '']);
 
-    $response = $proxy->handle('GET', '/abc123');
+    $response = $proxy->handle('GET', '/images/abc123');
 
     expect($response->headers['Content-Type'])->toBe('application/octet-stream');
 });
@@ -86,7 +86,7 @@ it('decodes vault payloads and returns the original file', function (): void {
 
     $proxy = new Proxy('https://iili.io', fetcher: fn (): array => ['status' => 200, 'body' => $png]);
 
-    $response = $proxy->handle('GET', '/dec/abc123/report.pdf');
+    $response = $proxy->handle('GET', '/files/abc123/report.pdf');
 
     expect($response->status)->toBe(200)
         ->and($response->body)->toBe($bytes)
@@ -98,7 +98,7 @@ it('decodes vault payloads and returns the original file', function (): void {
 it('returns 502 when the upstream fails for a decode request', function (): void {
     $proxy = new Proxy('https://iili.io', fetcher: fn (): array => ['status' => 500, 'body' => '']);
 
-    expect($proxy->handle('GET', '/dec/abc123/file.pdf')->status)->toBe(502);
+    expect($proxy->handle('GET', '/files/abc123/file.pdf')->status)->toBe(502);
 });
 
 it('returns 400 for invalid vault payloads', function (): void {
@@ -113,7 +113,7 @@ it('returns 400 for invalid vault payloads', function (): void {
 
     $proxy = new Proxy('https://iili.io', fetcher: fn (): array => ['status' => 200, 'body' => $png]);
 
-    expect($proxy->handle('GET', '/dec/abc123/file.pdf')->status)->toBe(400);
+    expect($proxy->handle('GET', '/files/abc123/file.pdf')->status)->toBe(400);
 });
 
 it('returns 400 for unknown routes', function (): void {
@@ -125,7 +125,7 @@ it('returns 400 for unknown routes', function (): void {
 it('merges CORS headers onto every response', function (): void {
     $proxy = new Proxy('https://iili.io', fetcher: fn (): array => ['status' => 404, 'body' => '']);
 
-    $response = $proxy->handle('GET', '/missing.png');
+    $response = $proxy->handle('GET', '/images/missing.png');
 
     expect($response->headers['Access-Control-Allow-Origin'])->toBe('*');
 });

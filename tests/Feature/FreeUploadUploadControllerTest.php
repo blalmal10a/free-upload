@@ -33,11 +33,11 @@ it('uploads raw images and returns the image url', function (): void {
 
     $response->assertOk()
         ->assertJson([
-            'url' => 'https://media-server.kawnek.workers.dev/abc123/photo.png',
+            'url' => url('/freeupload/images/abc123.png/photo.png'),
         ]);
 });
 
-it('returns a decode url for encoded non-image uploads', function (): void {
+it('returns a files url for encoded non-image uploads', function (): void {
     Http::fake([
         'https://freeimage.host/*' => Http::response([
             'image' => ['url' => 'https://freeimage.host/img/abc123'],
@@ -53,7 +53,7 @@ it('returns a decode url for encoded non-image uploads', function (): void {
 
     $response->assertOk()
         ->assertJson([
-            'url' => 'https://media-server.kawnek.workers.dev/dec/abc123/report.pdf',
+            'url' => url('/freeupload/files/abc123.png/report.pdf'),
         ]);
 });
 
@@ -102,8 +102,8 @@ it('returns 422 for invalid uploads', function (): void {
     ])->assertStatus(422);
 });
 
-it('uses the configured decode base url when building urls', function (): void {
-    config()->set('free-upload.decode_base_url', 'https://proxy.example.com');
+it('uses the configured proxy base url when building urls', function (): void {
+    config()->set('free-upload.proxy_base_url', 'https://proxy.example.com');
 
     Http::fake([
         'https://freeimage.host/*' => Http::response([
@@ -116,6 +116,36 @@ it('uses the configured decode base url when building urls', function (): void {
         'filename' => 'photo.png',
         'mime_type' => 'image/png',
     ])->assertJson([
-        'url' => 'https://proxy.example.com/abc123/photo.png',
+        'url' => 'https://proxy.example.com/images/abc123.png/photo.png',
+    ]);
+});
+
+it('uses the configured file paths when building urls', function (): void {
+    config()->set('free-upload.image_path', 'media');
+    config()->set('free-upload.files_path', 'vault');
+
+    Http::fake([
+        'https://freeimage.host/*' => Http::response([
+            'image' => ['url' => 'https://freeimage.host/img/abc123'],
+        ]),
+    ]);
+
+    $this->postJson(route('freeupload.upload'), [
+        'file' => UploadedFile::fake()->image('photo.png'),
+        'filename' => 'photo.png',
+        'mime_type' => 'image/png',
+    ])->assertJson([
+        'url' => url('/freeupload/media/abc123.png/photo.png'),
+    ]);
+
+    $response = $this->postJson(route('freeupload.upload'), [
+        'file' => UploadedFile::fake()->create('encoded.png', 10),
+        'filename' => 'report.pdf',
+        'mime_type' => 'application/pdf',
+        'encoded' => '1',
+    ]);
+
+    $response->assertJson([
+        'url' => url('/freeupload/vault/abc123.png/report.pdf'),
     ]);
 });

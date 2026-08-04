@@ -32,12 +32,35 @@ class FreeUploadUploadController
         $filename = $request->input('filename', $file->getClientOriginalName());
         $filename = (string) str($filename)->replace('\\', '/')->basename();
 
-        $base = rtrim((string) config('free-upload.decode_base_url'), '/');
-        $url = $request->boolean('encoded')
-            ? "{$base}/dec/{$id}/{$filename}"
-            : "{$base}/{$id}/{$filename}";
+        $base = (string) config('free-upload.proxy_base_url');
+
+        if ($base === '') {
+            $prefix = (string) config('free-upload.route_prefix', 'freeupload');
+            $base = rtrim(url("/{$prefix}"), '/');
+        } else {
+            $base = rtrim($base, '/');
+        }
+
+        $encoded = $request->boolean('encoded');
+
+        $path = $encoded
+            ? (string) config('free-upload.files_path', 'files')
+            : (string) config('free-upload.image_path', 'images');
+
+        $id = $this->withExtension($id, $encoded ? 'png' : $file->getClientOriginalExtension());
+
+        $url = "{$base}/{$path}/{$id}/{$filename}";
 
         return response()->json(['url' => $url]);
+    }
+
+    private function withExtension(string $id, string $extension): string
+    {
+        if ($extension === '' || pathinfo($id, PATHINFO_EXTENSION) !== '') {
+            return $id;
+        }
+
+        return "{$id}.{$extension}";
     }
 
     /**

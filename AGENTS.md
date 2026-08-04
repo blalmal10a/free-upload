@@ -4,7 +4,7 @@
 
 - **Configured**: skeleton fully renamed to vendor `blalmal10a`, package `free-upload`, namespace `Blalmal10a\FreeUpload` (`configure.php` was run and self-deleted — no placeholders remain).
 - `composer.json`: `php: ^8.2`, `ext-gd`, `filament/filament: ^4.0 || ^5.0`. CI matrix (`tests.yml` + `phpstan.yml`) runs a `filament: [4.*, 5.*]` dimension; the phpstan job loads `gd`.
-- **Implemented so far**: Phase 0–4 done (config, controller, skeleton cleanup, provider wiring, `src/Proxy/`, `server/`, `FreeUpload` component + inline XHR/PXVT JS, full Pest suite, README). Verification green locally: `pint`, `phpstan`, `rector --dry-run`, `pest` (35 tests), `route:list --name=freeupload` shows `freeupload.upload`, server smoke (OPTIONS 204+CORS / 400 / 404 via real network).
+- **Implemented so far**: Phase 0–4 done (config, controller, skeleton cleanup, provider wiring, `src/Proxy/`, in-app file-serving routes, `FreeUpload` component + inline XHR/PXVT JS, stub publish command, full Pest suite, README). Verification green locally: `pint`, `phpstan`, `rector --dry-run`, `pest` (43 tests / 99 assertions), `route:list --name=freeupload` shows `freeupload.upload` + `freeupload.image` + `freeupload.files`.
 - **Imported into host template** (`blalmal10a/kawnek-template`, Aug 2026): path repo + `@dev` require + test autoload wired, `UserForm.php` uses `FreeUpload`, `FREEUPLOAD_API_KEY` in `.env(.example)`, route registered — see "Wiring into the host template".
 - `vendor/` is installed. `composer install` runs `testbench package:discover` via `post-autoload-dump`, so testbench is required even for `composer lint`.
 - Branch is `5.x`. `update-changelog.yml` fixed to `5.x` (badges in README also use `5.x`).
@@ -18,10 +18,10 @@
 - [x] Phase 1: Skeleton cleanup (full): delete `database/` (migration stub + factory), `stubs/`, `src/Commands|Facades|Testing`, demo `src/FreeUpload.php`, `resources/`, `bin/`, `package.json`, `.npmrc`, `.prettierrc`, `tests/DebugTest.php`; drop `Database\Factories` autoload + `FreeUpload` alias from composer.json; trim `database` from `phpstan.neon.dist` paths; `composer dump-autoload`
 - [x] Phase 1: Provider wiring: drop `hasCommands`/`hasMigrations`/stub-publishing/`Testable::mixin`; register config-gated route → `POST {prefix}/upload` named `freeupload.upload`
 - [x] Phase 1: `src/Proxy/` — PxvtDecoder, PxvtDecodeException, ProxyResponse, Proxy (injectable fetcher)
-- [x] Phase 1: `server/` standalone deployable proxy (composer.json, public/index.php, .htaccess)
-- [x] Phase 2: `FreeUpload` component + XHR/PXVT JS (StateCast dropped for MVP; asset registration hooks stay empty — upload JS is inline in `toEmbeddedHtml`)
-- [x] Phase 3: Pest tests — Unit: PxvtDecoder, Proxy, Config · Feature: Controller (Http::fake), Component (Livewire::test); replace skeleton `ExampleTest`/`DebugTest`
-- [x] Phase 4: README rewrite, update-changelog.yml branch fix, verification (lint/analyse/test, `route:list --name=freeupload`, server smoke)
+- [x] Phase 1: In-app file serving: `FreeUploadFileController` wraps `Proxy`; GET `{prefix}/{image_path}/{id}/{filename}` (raw) + `{prefix}/{files_path}/{id}/{filename}` (decode); standalone `server/` deleted
+- [x] Phase 2: `FreeUpload` component + XHR/PXVT JS (StateCast dropped for MVP; asset registration hooks stay empty — upload JS is inline in `toEmbeddedHtml`); `$wire.set(statePath, [...state, url])` after upload
+- [x] Phase 3: Pest tests — Unit: PxvtDecoder, Proxy, Config · Feature: Controller (Http::fake), FileController, Component (Livewire::test); replace skeleton `ExampleTest`/`DebugTest`
+- [x] Phase 4: README rewrite, update-changelog.yml branch fix, verification (lint/analyse/test, `route:list --name=freeupload`)
 
 ## Toolchain & commands
 
@@ -47,7 +47,7 @@ All via composer scripts (see `composer.json`):
 
 ## Roadmap — FreeUpload plugin
 
-Standalone Filament plugin `blalmal10a/free-upload` (namespace `Blalmal10a\FreeUpload`) supporting **Filament v4 and v5 — one package major** (`filament/filament: ^4.0 || ^5.0`). Ports the host app's `KawnekFileUpload` component + state hook + upload controller into this package, ships a **framework-free PHP proxy server** (port of the `media-server.kawnek.workers.dev` worker: image proxying + PXVT decode), full docs (README), and a Pest suite. **Nothing in the host app is deleted** — the old classes stay in place.
+Standalone Filament plugin `blalmal10a/free-upload` (namespace `Blalmal10a\FreeUpload`) supporting **Filament v4 and v5 — one package major** (`filament/filament: ^4.0 || ^5.0`). Ports the host app's `KawnekFileUpload` component + state hook + upload controller into this package; serving/decoding happens **in-app** via the plugin's own PHP proxy (fetch from the image host + PXVT decode), full docs (README), and a Pest suite. **Nothing in the host app is deleted** — the old classes stay in place.
 
 ### Version support decisions (verified against Filament 4.x/5.x source, Aug 2026)
 
@@ -58,12 +58,11 @@ Standalone Filament plugin `blalmal10a/free-upload` (namespace `Blalmal10a\FreeU
 
 ### Locked decisions
 
-- Upload endpoint: plugin's own Laravel controller + route by default; configurable **only** via env/config (`upload_endpoint` / `FREEUPLOAD_UPLOAD_ENDPOINT`) — deliberately **not** per-component (removed `->uploadEndpoint()` in Aug 2026; the endpoint must be a single env-driven value across all form fields).
-- Decode endpoint: configurable base URL (`decode_base_url`, default `https://media-server.kawnek.workers.dev`); stored values are URL strings built as `{base}{/dec if encoded}/{id}/{filename}`.
+- Upload endpoint: plugin's own Laravel controller + route by default; configurable **only** via env/config (`upload_endpoint` / `FREEUPLOAD_UPLOAD_ENDPOINT`) — deliberately **not** per-component (removed `->uploadEndpoint()` in Aug 2026; the endpoint must be a single env-driven value across all form fields). The configured value may be a full URL, a path (`some/path`), or a route name (`some.path` — guarded by `Route::has()`, falls back to `freeupload.upload`).
+- Serving: in-app routes under `{prefix}` — `GET /{prefix}/{image_path}/{id}/{filename}` streams raw from `image_host` (iili.io); `GET /{prefix}/{files_path}/{id}/{filename}` fetches the encoded PNG, PXVT-decodes it, and streams the original file. Stored URLs are `{proxy_base_url or app}/{image_path|files_path}/{idWithExt}/{filename}`. `proxy_base_url` (env `FREEUPLOAD_PROXY_BASE_URL`) defaults to null → the app's own routes. Decode happens in-app via GD; `Proxy` buffers responses (no streaming).
 - Client HTTP: `XMLHttpRequest` with `xhr.upload.onprogress` — **no axios**.
 - Non-image files: encoded client-side PXVT → PNG via canvas `toBlob` (30 MB cap); images (`image/*`) upload raw, never encoded.
 - Decoding is server-side only, via GD (`imagecreatefromstring`/`imagecolorat`). Proxy buffers responses (no streaming).
-- Proxy server is framework-free (cURL + GD), deployable on PHP 8.2+; tests run from the package dir via `composer test` (Testbench), not from the host (see "Running the package tests").
 - Component stores URL state natively: `fetchFileInformation(false)` + a `getUploadedFileUsing` override so URL strings hydrate and render as remote files. **No StateCast in the MVP** (the roadmap's `FreeUploadStateCast` was dropped; re-add only if v3 support is ever ported).
 
 ### Package structure (target)
@@ -72,30 +71,35 @@ Standalone Filament plugin `blalmal10a/free-upload` (namespace `Blalmal10a\FreeU
 config/free-upload.php                 # Public endpoints + config marks, env-driven
 src/Forms/Components/FreeUpload.php    # extends FileUpload; XHR uploadUsing; toEmbeddedHtml
 src/Http/Controllers/FreeUploadUploadController.php
+src/Http/Controllers/FreeUploadFileController.php   # in-app proxy: /{image_path} raw, /{files_path} decode
+src/Commands/PublishComponent.php      # freeupload:publish-component (stub → app namespace)
 src/Proxy/{PxvtDecoder,Proxy,ProxyResponse,PxvtDecodeException}.php
-server/                                # standalone deployable proxy (composer.json, public/index.php, .htaccess)
-tests/                                 # Unit: PxvtDecoder, Proxy, Config · Feature: Controller, Component
+stubs/Forms/Components/FreeUpload.php.stub           # {{ namespace }} placeholder
+tests/                                 # Unit: PxvtDecoder, Proxy, Config · Feature: Controller, FileController, Component
 ```
 
 ### Publishing the component (August 2026)
 
-- `FreeUploadServiceProvider` registers a `publishes()` map for the component class: tag `free-upload-component` (also grouped under `free-upload`) copies `src/Forms/Components/FreeUpload.php` → `app/Forms/Components/FreeUpload.php`.
-- The copy keeps the package namespace, so it is **not autoloaded** as-is; the host dev changes the namespace to their app namespace and references `App\Forms\Components\FreeUpload` in their forms (documented in README). The published copy is a one-time snapshot — package upgrades don't touch it.
-- Publishing the raw source (not a namespaced stub) keeps a single source of truth — no duplicated template to keep in sync. The published file is dead code until the namespace is changed, so there is no class-conflict risk.
+- `FreeUploadServiceProvider` registers a `publishes()` map for the component stub: tag `free-upload-component` (also grouped under `free-upload`) copies `stubs/Forms/Components/FreeUpload.php.stub` → `app/Forms/Components/FreeUpload.php`.
+- The stub carries a `{{ namespace }}` placeholder, replaced by `php artisan freeupload:publish-component` (`--namespace=` overrides the default `App\Forms\Components`). The command creates `app/Forms/Components/` if needed and skips when the target already exists.
+- The published copy is a one-time snapshot — package upgrades don't touch it.
 - Upload endpoint, size caps, etc. are still config/env driven, so a published component changes only how it renders/uploads.
 
 ### Config keys (`config/free-upload.php`)
 
 | Key | Env | Default | Purpose |
 | --- | --- | --- | --- |
-| `upload_endpoint` | `FREEUPLOAD_UPLOAD_ENDPOINT` | `null` → plugin route `freeupload.upload` | user-defined upload endpoint |
-| `decode_base_url` | `FREEUPLOAD_DECODE_BASE_URL` | `https://media-server.kawnek.workers.dev` | user-defined decode endpoint |
+| `upload_endpoint` | `FREEUPLOAD_UPLOAD_ENDPOINT` | `null` → plugin route `freeupload.upload` | user-defined upload endpoint (URL, path, or route name) |
+| `proxy_base_url` | `FREEUPLOAD_PROXY_BASE_URL` | `null` → the app's own routes | base URL of the proxy that serves stored files |
+| `image_path` | `FREEUPLOAD_IMAGE_PATH` | `images` | path segment for raw image streaming |
+| `files_path` | `FREEUPLOAD_FILES_PATH` | `files` | path segment for PXVT-decoded files |
 | `upload_host` | `FREEUPLOAD_UPLOAD_HOST` | `https://freeimage.host/api/1/upload` | upstream hosting API |
 | `api_key` | `FREEUPLOAD_API_KEY` | `''` | FreeImage.host API key |
 | `max_size_kb` | `FREEUPLOAD_MAX_SIZE_KB` | `32768` | upload validation cap |
 | `max_encoded_file_mb` | `FREEUPLOAD_MAX_ENCODED_FILE_MB` | `30` | client-side non-image cap |
-| `image_host` | `FREEUPLOAD_IMAGE_HOST` | `https://iili.io` | upstream host for the standalone proxy |
-| `register_routes` / `route_prefix` / `route_middleware` | `FREEUPLOAD_REGISTER_ROUTES` / `FREEUPLOAD_ROUTE_PREFIX` | `true` / `freeupload` / `['web','auth']` | plugin route toggles |
+| `image_host` | `FREEUPLOAD_IMAGE_HOST` | `https://iili.io` | upstream host the proxy fetches from |
+| `proxy_timeout` | `FREEUPLOAD_PROXY_TIMEOUT` | `10` | upstream fetch timeout (seconds) |
+| `register_routes` / `route_prefix` / `route_middleware` | `FREEUPLOAD_REGISTER_ROUTES` / `FREEUPLOAD_ROUTE_PREFIX` / `FREEUPLOAD_ROUTE_MIDDLEWARE` | `true` / `freeupload` / `['web','auth']` | plugin route toggles |
 
 ### PXVT format & decode algorithm
 
@@ -105,7 +109,7 @@ tests/                                 # Unit: PxvtDecoder, Proxy, Config · Fea
 
 ### Proxy routing (`src/Proxy/Proxy.php`)
 
-`Proxy(string $imageHost, int $timeoutSeconds, ?callable $fetcher)` — fetcher injectable for tests. `OPTIONS` → 204 + CORS; `/{id}/{filename?}` → fetch upstream `{imageHost}/{id}`, ≥400 → 404, else stream with `Cache-Control: public, max-age=86400`; `/dec/{id}/{filename}` → fetch PNG, upstream fail → 502, bad magic/truncated → 400, other decode errors → 500, success → 200 with original `Content-Type` + `Content-Disposition: inline`, `Cache-Control: no-store`; anything else → 400. CORS headers (`Access-Control-Allow-Origin: *`, etc.) merged on all responses.
+`Proxy(string $imageHost, int $timeoutSeconds, ?callable $fetcher)` — fetcher injectable for tests. `OPTIONS` → 204 + CORS; `/images/{id}/{filename?}` → fetch upstream `{imageHost}/{id}`, ≥400 → 404, else stream with `Cache-Control: public, max-age=86400`; `/files/{id}/{filename}` → fetch PNG, upstream fail → 502, bad magic/truncated → 400, other decode errors → 500, success → 200 with original `Content-Type` + `Content-Disposition: inline`, `Cache-Control: no-store`; anything else → 400. CORS headers (`Access-Control-Allow-Origin: *`, etc.) merged on all responses.
 
 ### Wiring into the host template (done — `blalmal10a/kawnek-template`, Aug 2026)
 
@@ -115,8 +119,8 @@ The package was imported into the host template `blalmal10a/kawnek-template` (Gi
    - **Version constraint must be `@dev`** — the package branch is `5.x`; both `dev-main` and `dev-5.x` (and `dev-5.x as x.y.z`) fail to match the path repo's `5.x-dev`.
    - **Directory is `free-upload` (hyphen)** — earlier docs in `FREE_UPLOAD.md`/this file said `freeupload`.
 2. Swapped the 2 usages in the template's [UserForm.php](https://github.com/blalmal10a/kawnek-template/blob/main/app/Filament/Resources/Users/Schemas/UserForm.php) from `KawnekFileUpload` (source: [KawnekFileUpload.php](https://github.com/blalmal10a/kawnek-template/blob/main/app/Filament/Forms/Components/KawnekFileUpload.php)) to `FreeUpload` — the old template class stays in place, untouched.
-3. `.env` / `.env.example`: added `FREEUPLOAD_API_KEY=6d207e02198a847aa98d0a2a901485a5` (the FreeImage.host key that was hardcoded in the template's old `FreeImageHostUploadController`). Optional overrides (`FREEUPLOAD_DECODE_BASE_URL`, `FREEUPLOAD_UPLOAD_HOST`, `FREEUPLOAD_UPLOAD_ENDPOINT`, `FREEUPLOAD_IMAGE_HOST`) were not added.
-4. Route auto-registered: `POST freeupload/upload` named `freeupload.upload` (template's `extra.laravel.dont-discover` is empty, so the provider auto-discovers; route middleware `['web','auth']`).
+3. `.env` / `.env.example`: added `FREEUPLOAD_API_KEY=6d207e02198a847aa98d0a2a901485a5` (the FreeImage.host key that was hardcoded in the template's old `FreeImageHostUploadController`). Optional overrides (`FREEUPLOAD_PROXY_BASE_URL`, `FREEUPLOAD_UPLOAD_HOST`, `FREEUPLOAD_UPLOAD_ENDPOINT`, `FREEUPLOAD_IMAGE_HOST`) were not added.
+4. Routes auto-registered: `POST freeupload/upload` named `freeupload.upload`, `GET freeupload/images/{id}/{filename}` named `freeupload.image`, `GET freeupload/files/{id}/{filename}` named `freeupload.files` (template's `extra.laravel.dont-discover` is empty, so the provider auto-discovers; route middleware `['web','auth']`).
 5. Template verification after the swap: `php artisan test --compact` (52 passed), `vendor/bin/pint --dirty`, `vendor/bin/phpstan`, `vendor/bin/rector --dry-run` — all green.
 
 ### Known issue fixed: Alpine v3 arrow-function scoping (Aug 2026)
@@ -131,14 +135,13 @@ Browser smoke test after the import hit `ReferenceError: uploadEndpoint is not d
 
 ### Running the package tests
 
-- **Run from the package directory**: `composer test` (Testbench boots the full Filament stack; 35 tests / 73 assertions green).
+- **Run from the package directory**: `composer test` (Testbench boots the full Filament stack; 43 tests / 99 assertions green).
 - `php artisan test ../../packages/free-upload/tests` from the host **does not work**: the package's `tests/Pest.php` + `TestCase` (Orchestra Testbench, `WithWorkbench`) conflicts with the host's `tests/Pest.php` bootstrap — tests fail with `BindingResolutionException: Target class [url]/[config] does not exist`. Earlier docs ("run from the host template") are wrong; always use the package's own `composer test`.
 
 ### Verification checklist
 
-- `composer test` (from the package dir) → green (35 tests / 73 assertions)
-- `php artisan vendor:publish --tag=free-upload-component` in the host → drops `app/Forms/Components/FreeUpload.php`
-- `php artisan route:list --name=freeupload` in the host template → `freeupload.upload` registered
-- `vendor/bin/pint` clean (repo + `server/`)
-- Server smoke: `composer install` in `server/`, `php -S 0.0.0.0:8080 -t public`, curl `/{id}` and `/dec/{id}/{name}`
+- `composer test` (from the package dir) → green (43 tests / 99 assertions)
+- `php artisan freeupload:publish-component` in the host → writes `app/Forms/Components/FreeUpload.php` with `App\Forms\Components` namespace
+- `php artisan route:list --name=freeupload` in the host template → `freeupload.upload` + `freeupload.image` + `freeupload.files` registered
+- `vendor/bin/pint` clean
 - Browser smoke: one upload through `FreeUpload` in the admin panel

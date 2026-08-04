@@ -44,12 +44,12 @@ final class Proxy
             return $this->response(204);
         }
 
-        if (preg_match('#^/dec/([^/]+)/([^/]+)$#', $path, $matches) === 1) {
-            return $this->decode($matches[1]);
+        if (preg_match('#^/images/([^/]+)(?:/([^/]+))?$#', $path, $matches) === 1) {
+            return $this->proxy($matches[1]);
         }
 
-        if (preg_match('#^/([^/]+)(?:/([^/]+))?$#', $path, $matches) === 1) {
-            return $this->proxy($matches[1]);
+        if (preg_match('#^/files/([^/]+)(?:/([^/]+))?$#', $path, $matches) === 1) {
+            return $this->decode($matches[1]);
         }
 
         return $this->response(400, 'Bad request.');

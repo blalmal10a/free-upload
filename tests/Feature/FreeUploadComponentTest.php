@@ -32,7 +32,7 @@ class FreeUploadTestForm extends Component implements HasSchemas
 }
 
 it('keeps url strings in state through hydration', function (): void {
-    $url = 'https://media-server.kawnek.workers.dev/dec/abc123/report.pdf';
+    $url = url('/freeupload/files/abc123.png/report.pdf');
 
     Livewire::test(FreeUploadTestForm::class)
         ->fillForm(['file' => [$url]])
@@ -41,8 +41,8 @@ it('keeps url strings in state through hydration', function (): void {
 
 it('resolves uploaded files from url strings', function (): void {
     $urls = [
-        'https://media-server.kawnek.workers.dev/dec/abc123/report.pdf',
-        'https://media-server.kawnek.workers.dev/abc123.png',
+        url('/freeupload/files/abc123.png/report.pdf'),
+        url('/freeupload/images/abc123.png/photo.png'),
     ];
 
     $testable = Livewire::test(FreeUploadTestForm::class)
@@ -54,19 +54,19 @@ it('resolves uploaded files from url strings', function (): void {
                 'name' => 'report.pdf',
                 'size' => 0,
                 'type' => null,
-                'url' => 'https://media-server.kawnek.workers.dev/dec/abc123/report.pdf',
+                'url' => url('/freeupload/files/abc123.png/report.pdf'),
             ],
             [
-                'name' => 'abc123.png',
+                'name' => 'photo.png',
                 'size' => 0,
                 'type' => null,
-                'url' => 'https://media-server.kawnek.workers.dev/abc123.png',
+                'url' => url('/freeupload/images/abc123.png/photo.png'),
             ],
         ]);
 });
 
 it('passes url strings through dehydration unchanged', function (): void {
-    $urls = ['https://media-server.kawnek.workers.dev/dec/abc123/report.pdf'];
+    $urls = [url('/freeupload/files/abc123.png/report.pdf')];
 
     $livewire = Livewire::test(FreeUploadTestForm::class)
         ->fillForm(['file' => $urls])
@@ -78,7 +78,7 @@ it('passes url strings through dehydration unchanged', function (): void {
 });
 
 it('removes url strings from state on delete', function (): void {
-    $url = 'https://media-server.kawnek.workers.dev/dec/abc123/report.pdf';
+    $url = url('/freeupload/files/abc123.png/report.pdf');
 
     Livewire::test(FreeUploadTestForm::class)
         ->fillForm(['file' => [$url]])
@@ -98,6 +98,24 @@ it('uses the configured upload endpoint over the plugin route', function (): voi
     expect(FreeUpload::make('file')->getUploadEndpoint())->toBe('https://config.example.com/upload');
 
     config()->set('free-upload.upload_endpoint', null);
+
+    expect(FreeUpload::make('file')->getUploadEndpoint())->toBe(route('freeupload.upload'));
+});
+
+it('accepts a relative path as the upload endpoint', function (): void {
+    config()->set('free-upload.upload_endpoint', 'some/path');
+
+    expect(FreeUpload::make('file')->getUploadEndpoint())->toBe('some/path');
+});
+
+it('resolves a route name as the upload endpoint', function (): void {
+    config()->set('free-upload.upload_endpoint', 'freeupload.upload');
+
+    expect(FreeUpload::make('file')->getUploadEndpoint())->toBe(route('freeupload.upload'));
+});
+
+it('falls back to the plugin route for unknown endpoint route names', function (): void {
+    config()->set('free-upload.upload_endpoint', 'some.unknown.route');
 
     expect(FreeUpload::make('file')->getUploadEndpoint())->toBe(route('freeupload.upload'));
 });
@@ -125,4 +143,12 @@ it('inlines the encoded file size cap instead of referencing an alpine data prop
     Livewire::test(FreeUploadTestForm::class)
         ->assertSee('if (file.size > 7340032)', escape: false)
         ->assertDontSee('maxEncodedFileMb', escape: false);
+});
+
+it('sets the livewire state with the uploaded url after a successful upload', function (): void {
+    $testable = Livewire::test(FreeUploadTestForm::class);
+
+    $testable->assertSee('$wire.set(\'data.file\', next)', escape: false)
+        ->assertSee('$wire.get(\'data.file\')', escape: false)
+        ->assertSee('current.includes(data.url)', escape: false);
 });

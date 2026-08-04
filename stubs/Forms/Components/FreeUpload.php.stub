@@ -1,6 +1,17 @@
 <?php
 
-namespace Blalmal10a\FreeUpload\Forms\Components;
+/*
+|--------------------------------------------------------------------------
+| FreeUpload form component stub
+|--------------------------------------------------------------------------
+|
+| Published via `php artisan freeupload:publish-component`. The namespace
+| placeholder below is replaced with your application namespace (default
+| `App\Forms\Components`) at publish time.
+|
+*/
+
+namespace {{ namespace }};
 
 use Closure;
 use Filament\Forms\Components\BaseFileUpload;

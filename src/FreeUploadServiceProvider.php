@@ -2,6 +2,8 @@
 
 namespace Blalmal10a\FreeUpload;
 
+use Blalmal10a\FreeUpload\Commands\PublishComponent;
+use Blalmal10a\FreeUpload\Http\Controllers\FreeUploadFileController;
 use Blalmal10a\FreeUpload\Http\Controllers\FreeUploadUploadController;
 use Filament\Support\Assets\Asset;
 use Filament\Support\Facades\FilamentAsset;
@@ -19,6 +21,7 @@ class FreeUploadServiceProvider extends PackageServiceProvider
     {
         $package->name(static::$name)
             ->hasConfigFile()
+            ->hasCommands([PublishComponent::class])
             ->hasInstallCommand(function (InstallCommand $command): void {
                 $command
                     ->publishConfigFile()
@@ -51,7 +54,7 @@ class FreeUploadServiceProvider extends PackageServiceProvider
     protected function registerComponentPublish(): void
     {
         $this->publishes([
-            __DIR__ . '/../src/Forms/Components/FreeUpload.php' => app_path('Forms/Components/FreeUpload.php'),
+            __DIR__ . '/../stubs/Forms/Components/FreeUpload.php.stub' => app_path('Forms/Components/FreeUpload.php'),
         ], ['free-upload-component', 'free-upload']);
     }
 
@@ -90,10 +93,19 @@ class FreeUploadServiceProvider extends PackageServiceProvider
             return;
         }
 
+        $imagePath = trim((string) config('free-upload.image_path', 'images'), '/');
+        $filesPath = trim((string) config('free-upload.files_path', 'files'), '/');
+
         Route::prefix((string) config('free-upload.route_prefix', 'freeupload'))
             ->middleware((array) config('free-upload.route_middleware', ['web', 'auth']))
-            ->group(function (): void {
+            ->group(function () use ($imagePath, $filesPath): void {
                 Route::post('/upload', FreeUploadUploadController::class)->name('freeupload.upload');
+
+                Route::get("/{$imagePath}/{id}/{filename}", [FreeUploadFileController::class, 'image'])
+                    ->name('freeupload.image');
+
+                Route::get("/{$filesPath}/{id}/{filename}", [FreeUploadFileController::class, 'file'])
+                    ->name('freeupload.files');
             });
     }
 }

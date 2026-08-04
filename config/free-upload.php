@@ -15,15 +15,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Decode base URL
+    | Proxy base URL
     |--------------------------------------------------------------------------
     |
-    | Base URL of the proxy server used to serve stored files. Decoded file
-    | URLs are built as "{url}/dec/{id}/{filename}".
+    | Base URL of the proxy that serves stored files. When null, the app's own
+    | routes are used (the plugin registers /{image_path} and /{files_path}
+    | routes under the route prefix). Stored file URLs are built as
+    | "{base}/{path}/{id}/{filename}".
     |
     */
 
-    'decode_base_url' => env('FREEUPLOAD_DECODE_BASE_URL', 'https://media-server.kawnek.workers.dev'),
+    'proxy_base_url' => env('FREEUPLOAD_PROXY_BASE_URL'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | File paths
+    |--------------------------------------------------------------------------
+    |
+    | Path segments used to serve stored files. Files under the image path are
+    | streamed as-is; files under the files path are PXVT-decoded first.
+    |
+    */
+
+    'image_path' => env('FREEUPLOAD_IMAGE_PATH', 'images'),
+    'files_path' => env('FREEUPLOAD_FILES_PATH', 'files'),
 
     /*
     |--------------------------------------------------------------------------
@@ -56,11 +71,12 @@ return [
     | Image host (proxy upstream)
     |--------------------------------------------------------------------------
     |
-    | Host the proxy fetches files from, used by the standalone server.
+    | Host the proxy fetches files from. proxy_timeout caps each upstream fetch.
     |
     */
 
     'image_host' => env('FREEUPLOAD_IMAGE_HOST', 'https://iili.io'),
+    'proxy_timeout' => (int) env('FREEUPLOAD_PROXY_TIMEOUT', 10),
 
     /*
     |--------------------------------------------------------------------------
