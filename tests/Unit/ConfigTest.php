@@ -13,7 +13,7 @@ it('exposes the expected configuration defaults', function (): void {
         ->and(config('free-upload.image_path'))->toBe('images')
         ->and(config('free-upload.files_path'))->toBe('files')
         ->and(config('free-upload.upload_host'))->toBe('https://freeimage.host/api/1/upload')
-        ->and(config('free-upload.api_key'))->toBe('')
+        ->and(config('free-upload.api_key'))->toBe('6d207e02198a847aa98d0a2a901485a5')
         ->and(config('free-upload.max_size_kb'))->toBe(32768)
         ->and(config('free-upload.max_encoded_file_mb'))->toBe(30)
         ->and(config('free-upload.image_host'))->toBe('https://iili.io')
