@@ -1,5 +1,5 @@
 {
-    "name": "blalmal10-a/free-upload",
+    "name": "blalmal10a/free-upload",
     "description": "Filament v4/v5 file upload plugin with custom XHR uploads, PXVT encoding, and proxy decoding",
     "keywords": [
         "laravel",
