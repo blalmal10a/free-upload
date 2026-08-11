@@ -45,7 +45,8 @@ it('returns a files url for encoded non-image uploads', function (): void {
     ]);
 
     $response = $this->postJson(route('freeupload.upload'), [
-        'file' => UploadedFile::fake()->create('encoded.png', 10),
+        // Use createWithContent to provide an explicit body payload
+        'file' => UploadedFile::fake()->createWithContent('encoded.png', 'fake-file-content-here'),
         'filename' => 'report.pdf',
         'mime_type' => 'application/pdf',
         'encoded' => '1',
