@@ -10,10 +10,10 @@ Standalone Filament plugin `blalmal10a/free-upload` (namespace `Blalmal10a\FreeU
 
 ## Version support decisions (verified against Filament 4.x/5.x source, Aug 2026)
 
-- **v4 and v5 share an identical component API** — v5 shipped solely to adopt Livewire 4 (PHP ^8.2, Laravel ^11.28|^12|^13 in both). One codebase / one package major covers both. There is **no v3 support** (v3 = PHP ^8.1, Livewire 3, no `filament/schemas`, Blade-view render).
+- **v4 and v5 share the component API — but not the render path.** The differences that matter: Filament 4's `FileUpload` hardcodes `$view = 'filament-forms::components.file-upload'` and does **not** implement `HasEmbeddedView`, so its `ViewComponent::toHtml()` renders a Blade view whose upload JS is the stock `$wire.upload(...)` — our `toEmbeddedHtml()` override would be silently ignored. Filament 5's `FileUpload implements Filament\Support\Components\Contracts\HasEmbeddedView` and `toHtml()` routes to `toEmbeddedHtml()` (plus `Field::wrapEmbeddedHtml()` exists). The package bridges this inside the component (see "Known issue fixed" below). v5 shipped solely to adopt Livewire 4 (PHP ^8.2, Laravel ^11.28|^12|^13 in both). One codebase / one package major covers both. There is **no v3 support** (v3 = PHP ^8.1, Livewire 3, no `filament/schemas`, Blade-view render).
 - If v3 support is ever added later: split into separate majors (`1.x`→v3, `2.x`→v4|v5) — the v3 `FileUpload` renders a Blade view (`$view = 'filament-forms::components.file-upload'`, overridable via `->view()`) and has **no** `Filament\Schemas\Components\StateCasts`, so it needs a Blade re-render + a `dehydrateStateUsing` fallback instead of the cast.
 - `FilamentAsset`/`FilamentIcon` registration and the `Plugin` interface (`getId`/`register`/`boot`) are identical in v3/v4/v5 — those parts port cleanly.
-- **Known risk**: `FileUpload::toEmbeddedHtml()` and the JS `uploadUsing:` block are at the same source line in 4.x and 5.x today, but they are Filament internals; pin the source commit you copy and re-diff on upgrades.
+- **Known risk**: the upload JS lives in **different places per major** — in Filament 4 inside the Blade view `filament-forms::components.file-upload`, in Filament 5 inside `FileUpload::toEmbeddedHtml()`. Both are Filament internals; pin the source commit you copy and re-diff on upgrades, and re-check the version-bridging code in `FreeUpload` (`HasEmbeddedView` + `toHtml()` override + wrapper branch) whenever either side changes.
 
 ## Locked decisions
 
@@ -91,3 +91,19 @@ Browser smoke test after the import hit `ReferenceError: uploadEndpoint is not d
 - `JSON_UNESCAPED_SLASHES` keeps URLs readable in the emitted HTML (Laravel's `Js::from` otherwise escapes `/` as `\/`; runtime is unaffected either way).
 - **Constraint going forward**: never reference Alpine data properties as bare variables inside arrow functions in `toEmbeddedHtml()` JS — inline PHP values with `Js::from()` instead (matches how Filament's own component code works).
 - Regression coverage: `tests/Feature/FreeUploadComponentTest.php` now asserts the endpoint (`xhr.open('POST', 'https://example.com/upload')`) and size cap (`if (file.size > 7340032)`) are inlined and that no `uploadEndpoint:`/`maxEncodedFileMb` data properties remain.
+
+## Known issue fixed: Filament 4 renders the Blade view instead of the embedded HTML (Aug 2026)
+
+CI row `php 8.4 × laravel 12.* × filament 4.* × prefer-lowest` failed 3 component tests (`it inlines the upload endpoint…`, `it inlines the encoded file size cap…`, `it sets the livewire state…`) while local Filament 5 was green. Repro (Filament 4.11.5 / Laravel 12.61.1 / Livewire 3.6.4) confirmed the same failures and a rendered-HTML dump showed the stock `uploadUsing: (fileKey, file, success, error, progress) => { $wire.upload(...) }` instead of our XHR/PXVT code.
+
+Root cause: `Filament\Support\Components\ViewComponent::toHtml()` only calls `toEmbeddedHtml()` when the component implements `HasEmbeddedView` and has no view set. Filament 4's `FileUpload` does neither (no interface, hardcoded `$view`), so the Blade view won and our override was silently ignored.
+
+Fix (all in `src/Forms/Components/FreeUpload.php`):
+
+- `FreeUpload extends FileUpload implements Filament\Support\Components\Contracts\HasEmbeddedView` (the interface is identical in v4/v5).
+- `toHtml()` is overridden to always return `toEmbeddedHtml()` — bypassing the Blade path in both majors.
+- The wrapper around the embedded HTML differs per major: `Field::wrapEmbeddedHtml()` exists only in v5, so a runtime branch checks `(new ReflectionClass(FileUpload::class))->implementsInterface(HasEmbeddedView::class)` (true on v5, false on v4). On v4 the field wrapper blade is rendered directly (`view($this->getFieldWrapperView(), …)` with `field`/`slot`/`labelTag: 'div'`), keeping label/hint/error markup; `filament-forms::field-wrapper` is not a registered view, so it maps to `filament-forms::components.field-wrapper` when unresolvable.
+
+**Constraint going forward**: keep the version-bridging intact — `HasEmbeddedView` + `toHtml()` override + the wrapper branch. The embedded JS itself must remain a single `Js::from()`-inlined block (per the Alpine v3 constraint above).
+
+Regression coverage: the same three tests now pass on v4 (43 tests / 99 assertions in the 4.11.5 repro) and locally on Filament 5.7.5 / Laravel 13.23 (`composer verify` green, 43 tests / 99 assertions).

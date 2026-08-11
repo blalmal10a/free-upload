@@ -2,15 +2,17 @@
 
 Implementation process for the package, tracked as checkbox tasks. Feature details live in `ARCHITECTURE.md`; agent essentials live in `AGENTS.md`.
 
-## Current work — docs restructure (Aug 2026)
+## Current work — Filament 4 prefer-lowest test failures (Aug 2026)
 
-- [x] Create `ARCHITECTURE.md` with all feature/design details moved from `AGENTS.md`
-- [x] Create `PLAN.md` (this file) with checkbox tasks
-- [x] Slim `AGENTS.md` to agent essentials only (repo status, toolchain, test conventions, tooling constraints, verification checklist + doc pointers)
-- [x] Remove stray `./--version/` husky-artifact dir (untracked, invisible to `git status` — leftover from a bad husky install)
-- [x] Verify doc cross-references and run `composer verify` (green: 43 tests / 99 assertions)
+- [x] Reproduce the failing CI row locally (php 8.4 × laravel 12 lowest × filament 4 lowest): temp env pinned Filament 4.11.5 / Laravel 12.61.1 / Livewire 3.6.4 — the 3 component tests (inlined upload endpoint, encoded size cap, `$wire.set` state) fail, 10 pass
+- [x] Root cause: in Filament 4, `FileUpload` does **not** implement `HasEmbeddedView` and hardcodes `$view`, so `ViewComponent::toHtml()` renders the Blade file-upload view with the stock `$wire.upload(...)` JS — our `toEmbeddedHtml()` override is never called. Filament 5's `FileUpload implements HasEmbeddedView`, so the embedded path runs there.
+- [x] Fix `src/Forms/Components/FreeUpload.php`: implement `HasEmbeddedView`, override `toHtml()` → `toEmbeddedHtml()`, and wrap the embedded HTML via `wrapEmbeddedHtml()` when the base `FileUpload` implements the interface (v5) or via the blade field-wrapper view when it does not (v4; `filament-forms::field-wrapper` falls back to `filament-forms::components.field-wrapper`, which is the actually registered view)
+- [x] Verify: `composer verify` green locally (Filament 5.7.5 / Laravel 13.23); full suite green in the v4 repro — 43 tests / 99 assertions in both
+- [ ] Re-run CI and confirm the previously failing matrix rows pass (P8.4 × L12.* × F4.* × prefer-lowest, ubuntu + windows)
 
 ## History — Phase 0–4 (done, Aug 2026)
+
+> Earlier current-work block (docs restructure, done before the F4 fix): create `ARCHITECTURE.md`; create `PLAN.md` with checkbox tasks; slim `AGENTS.md` to agent essentials; remove stray `./--version/` husky-artifact dir; verify doc cross-references + `composer verify` (43 tests / 99 assertions).
 
 - [x] Update `AGENTS.md`: v4+v5 support framing (replace v5-only roadmap)
 - [x] Phase 0: run configure.php, composer.json (filament ^4||^5, ext-gd), CI matrix
