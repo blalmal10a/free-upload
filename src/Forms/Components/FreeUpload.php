@@ -5,16 +5,25 @@ namespace Blalmal10a\FreeUpload\Forms\Components;
 use Closure;
 use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\FileUpload;
+use Filament\Support\Components\Contracts\HasEmbeddedView;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\View\ComponentAttributeBag as FilamentComponentAttributeBag;
 use Filament\Support\View\Components\ButtonComponent;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Js;
+use Illuminate\View\ComponentAttributeBag;
+use Illuminate\View\ComponentSlot;
+use ReflectionClass;
 
-class FreeUpload extends FileUpload
+class FreeUpload extends FileUpload implements HasEmbeddedView
 {
     protected int | Closure | null $maxEncodedFileMb = null;
+
+    public function toHtml(): string
+    {
+        return $this->toEmbeddedHtml();
+    }
 
     protected function setUp(): void
     {
@@ -570,6 +579,23 @@ class FreeUpload extends FileUpload
             <?php } ?>
         </div>
 
-        <?php return $this->wrapEmbeddedHtml(ob_get_clean(), labelTag: 'div');
+<?php $html = ob_get_clean();
+
+        if ((new ReflectionClass(FileUpload::class))->implementsInterface(HasEmbeddedView::class)) {
+            return $this->wrapEmbeddedHtml($html, labelTag: 'div');
+        }
+
+        $fieldWrapperView = $this->getFieldWrapperView();
+
+        if ((! view()->exists($fieldWrapperView)) && str_contains($fieldWrapperView, '::')) {
+            $fieldWrapperView = str($fieldWrapperView)->replaceFirst('::', '::components.')->toString();
+        }
+
+        return view($fieldWrapperView, [
+            'attributes' => new ComponentAttributeBag,
+            'field' => $this,
+            'slot' => new ComponentSlot($html),
+            'labelTag' => 'div',
+        ])->render();
     }
 }
