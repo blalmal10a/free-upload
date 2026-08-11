@@ -42,12 +42,12 @@ jobs:
     name: P${{ matrix.php }} - L${{ matrix.laravel }} - F${{ matrix.filament }} - ${{ matrix.stability }} - ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9a28b8d5b6f290 # v4.1.7
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Cache Composer dependencies
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        uses: actions/cache@v4
         with:
           path: ~/.composer/cache/files
           key: composer-${{ matrix.os }}-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-${{ hashFiles('composer.json') }}
@@ -56,7 +56,7 @@ jobs:
             composer-${{ matrix.os }}-${{ matrix.php }}-
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@c541c155eee45413f5b09a60d4e1e21e3f46cb10 # v2.31.1
+        uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo
