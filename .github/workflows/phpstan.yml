@@ -68,7 +68,8 @@ jobs:
       - name: Install dependencies
         run: |
           composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" "filament/filament:${{ matrix.filament }}" --no-interaction --no-update
-          composer update --${{ matrix.stability }} --prefer-dist --no-interaction
+          composer config --global --auth github-oauth.github.com ${{ secrets.GITHUB_TOKEN }}
+          composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-audit
 
       - name: Run PHPStan
         run: ./vendor/bin/phpstan --error-format=github
