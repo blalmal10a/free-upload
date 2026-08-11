@@ -60,6 +60,10 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: mbstring, pdo, pdo_sqlite, gd
           coverage: none
+          ini-values: curl.cainfo="/etc/ssl/certs/ca-certificates.crt", openssl.cafile="/etc/ssl/certs/ca-certificates.crt"
+
+      - name: Update SSL Certificates
+        run: sudo apt-get update && sudo apt-get install --reinstall -y ca-certificates
 
       - name: Install dependencies
         run: |
