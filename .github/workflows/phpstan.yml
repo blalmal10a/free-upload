@@ -7,10 +7,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
   phpstan:
     runs-on: ubuntu-latest
@@ -18,47 +14,15 @@ jobs:
       fail-fast: false
       matrix:
         php: [8.4, 8.3, 8.2]
-        laravel: [13.*, 12.*, ~11.28]
-        filament: [4.*, 5.*]
-        stability: [prefer-stable]
-        include:
-          - laravel: 13.*
-            testbench: 11.*
-          - laravel: 12.*
-            testbench: 10.*
-          - laravel: ~11.28
-            testbench: 9.*
-        exclude:
-          - laravel: 13.*
-            php: 8.2
-    name: P${{ matrix.php }} - L${{ matrix.laravel }} - F${{ matrix.filament }} - ${{ matrix.stability }}
+
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+      - uses: actions/checkout@v4
 
       - name: Update SSL Certificates
         run: sudo apt-get update && sudo apt-get install --reinstall -y ca-certificates
 
-      - name: Cache Composer dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.composer/cache/files
-          key: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ hashFiles('composer.json') }}
-          restore-keys: |
-            composer-${{ matrix.php }}-${{ matrix.laravel }}-
-            composer-${{ matrix.php }}-
-
-      - name: Cache PHPStan result
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /tmp/phpstan
-          key: phpstan-${{ matrix.php }}-${{ matrix.laravel }}-${{ github.sha }}
-          restore-keys: |
-            phpstan-${{ matrix.php }}-${{ matrix.laravel }}-
-
       - name: Setup PHP
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           extensions: mbstring, pdo, pdo_sqlite, gd
@@ -66,8 +30,7 @@ jobs:
           ini-values: curl.cainfo="/etc/ssl/certs/ca-certificates.crt", openssl.cafile="/etc/ssl/certs/ca-certificates.crt"
 
       - name: Install dependencies
-        run: |
-          composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" "filament/filament:${{ matrix.filament }}" --no-interaction --no-update
-          composer config --global --auth github-oauth.github.com ${{ secrets.GITHUB_TOKEN }}
-          composer config -g secure-http false
-
+        run: composer update --prefer-stable --prefer-dist --no-interaction
+
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --no-progress

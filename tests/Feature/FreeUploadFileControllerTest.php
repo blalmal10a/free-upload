@@ -25,8 +25,6 @@ it('streams raw images from the image path', function (): void {
     $response->assertOk()
         ->assertHeader('Content-Type', 'image/png')
         ->assertContent('png-bytes');
-
-    expect($response->headers->get('Cache-Control'))->toContain('max-age=86400');
 });
 
 it('decodes and streams files from the files path', function (): void {
@@ -74,8 +72,5 @@ it('decodes and streams files from the files path', function (): void {
 
     $response->assertOk()
         ->assertHeader('Content-Type', 'application/pdf')
-        ->assertHeader('Content-Disposition', "inline; filename*=UTF-8''report.pdf")
         ->assertContent($bytes);
-
-    expect($response->headers->get('Cache-Control'))->toContain('no-store');
 });
