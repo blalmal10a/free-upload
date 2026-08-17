@@ -16,7 +16,7 @@ jobs:
         php: [8.4, 8.3, 8.2]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Update SSL Certificates
         run: sudo apt-get update && sudo apt-get install --reinstall -y ca-certificates
